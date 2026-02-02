@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Unseen Value Predictor</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #1d2671, #c33764);
+      font-family: Arial, sans-serif;
+    }
+
+    .box {
+      background: white;
+      padding: 25px 40px;
+      border-radius: 16px;
+      box-shadow: 0 12px 25px rgba(0,0,0,0.25);
+      width: 500px;
+      text-align: center;
+    }
+
+    h2 {
+      color: #222;
+    }
+
+    input {
+      padding: 8px;
+      width: 150px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-right: 5px;
+    }
+
+    button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      background: #c33764;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #9e2b52;
+    }
+
+    #output {
+      margin-top: 12px;
+      font-weight: bold;
+      color: #c33764;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: #666;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>Unseen Value Predictor</h2>
+  <p>Predict output for values not in training set</p>
+
+  <input type="number" id="userInput" placeholder="Enter X">
+  <button onclick="predict()">Predict</button>
+
+  <h3 id="output">Waiting for input...</h3>
+  <p class="hint">Open console to see calculations</p>
+</div>
+
+<script>
+let model;
+let xVals = [];
+let yVals = [];
+
+async function run(){
+  // Generate synthetic data: y = 2.5x + 5 + noise
+  for (let i = 1; i <= 10; i++) {
+    const noise = (Math.random() - 0.5) * 2;
+    xVals.push(i);
+    yVals.push(2.5 * i + 5 + noise);
+  }
+
+  console.log("Training Data (X, Y):");
+  xVals.forEach((x,i)=>{
+    console.log(`x=${x}, y=${yVals[i].toFixed(2)}`);
+  });
+
+  const xs = tf.tensor2d(xVals, [xVals.length, 1]);
+  const ys = tf.tensor2d(yVals, [yVals.length, 1]);
+
+  model = tf.sequential();
+  model.add(tf.layers.dense({ units: 1, inputShape: [1] }));
+  model.compile({ optimizer: "sgd", loss: "meanSquaredError" });
+
+  console.log("Training started...");
+  await model.fit(xs, ys, { epochs: 120 });
+  console.log("Training completed.");
+
+  // Get learned weights (m and c)
+  const weights = model.getWeights();
+  const m = weights[0].dataSync()[0];
+  const c = weights[1].dataSync()[0];
+
+  console.log("Learned Parameters:");
+  console.log("Weight (m):", m.toFixed(4));
+  console.log("Bias (c):", c.toFixed(4));
+  console.log(`Learned Equation: y = ${m.toFixed(2)}x + ${c.toFixed(2)}`);
+
+  // Plot data and regression line
+  const data = xVals.map((x,i)=>({x:x, y:yVals[i]}));
+
+  const lineX = [];
+  for (let i = 1; i <= 12; i += 0.1) lineX.push(i);
+
+  const lineTensor = tf.tensor2d(lineX, [lineX.length,1]);
+  const preds = model.predict(lineTensor);
+  const lineY = Array.from(preds.dataSync());
+
+  const lineData = lineX.map((x,i)=>({x:x, y: lineY[i]}));
+
+  tfvis.render.scatterplot(
+    { name: "Training Data + Regression Line" },
+    { values: [data, lineData], series: ["Training Data", "Model Line"] },
+    { xLabel: "X", yLabel: "Y", height: 300 }
+  );
+
+  // Console helper
+  window.predictValue = function(x){
+    const y = model.predict(tf.tensor2d([x],[1,1]));
+    y.print();
+    console.log(`Using equation: y = ${m.toFixed(2)}*${x} + ${c.toFixed(2)}`);
+  };
+
+  console.log("Use predictValue(x) in console");
+}
+
+function predict(){
+  const val = Number(document.getElementById("userInput").value);
+
+  const pred = model.predict(tf.tensor2d([val],[1,1]));
+  pred.data().then(res=>{
+    const y = res[0];
+    document.getElementById("output").innerText =
+      "Predicted Y ≈ " + y.toFixed(2);
+
+    console.log("User Input X =", val);
+    console.log("Predicted Y =", y.toFixed(4));
+  });
+}
+
+run();
+</script>
+
+</body>
+</html>

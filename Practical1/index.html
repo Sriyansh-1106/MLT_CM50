@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>House Price Prediction (TFJS)</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #43cea2, #185a9d);
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      background: white;
+      padding: 25px 40px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+      width: 480px;
+    }
+
+    h2 {
+      color: #333;
+    }
+
+    p {
+      color: #555;
+      font-size: 14px;
+    }
+
+    .note {
+      margin-top: 10px;
+      color: #2c7be5;
+      font-weight: bold;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h2>House Price Prediction</h2>
+    <p>Predict house price based on area (real-world style data)</p>
+    <p class="note">Use <b>predictPrice(area)</b> in console</p>
+  </div>
+
+<script>
+async function run() {
+
+  // Generate real-life like data: Price = 0.5 * area + 20 + noise
+  const areaVals = [];
+  const priceVals = [];
+
+  for (let i = 500; i <= 2500; i += 200) {
+    const area = i;
+    const noise = (Math.random() - 0.5) * 50; // price fluctuation
+    const price = 0.5 * area / 10 + 20 + noise; // in lakhs
+
+    areaVals.push(area);
+    priceVals.push(price);
+  }
+
+  const xs = tf.tensor2d(areaVals, [areaVals.length, 1]);
+  const ys = tf.tensor2d(priceVals, [priceVals.length, 1]);
+
+  const data = areaVals.map((x, i) => ({
+    x: x,
+    y: priceVals[i]
+  }));
+
+  // Plot real-world data
+  tfvis.render.scatterplot(
+    { name: "House Area vs Price" },
+    { values: data },
+    { xLabel: "Area (sqft)", yLabel: "Price (lakhs)", height: 300 }
+  );
+
+  // Neural network model
+  window.model = tf.sequential();
+  model.add(tf.layers.dense({ units: 8, activation: 'relu', inputShape: [1] }));
+  model.add(tf.layers.dense({ units: 1 }));
+
+  model.compile({
+    optimizer: tf.train.adam(0.05),
+    loss: 'meanSquaredError'
+  });
+
+  console.log("Training started...");
+
+  await model.fit(xs, ys, {
+    epochs: 300,
+    callbacks: tfvis.show.fitCallbacks(
+      { name: "Training Loss" },
+      ['loss'],
+      { height: 200 }
+    )
+  });
+
+  console.log("Training complete");
+
+  // Predictions
+  const preds = model.predict(xs);
+  const predVals = Array.from(preds.dataSync());
+
+  const predData = areaVals.map((x, i) => ({
+    x: x,
+    y: predVals[i]
+  }));
+
+  tfvis.render.scatterplot(
+    { name: "Prediction vs Actual" },
+    { values: [data, predData], series: ['Actual Prices', 'Predicted Prices'] },
+    { xLabel: "Area (sqft)", yLabel: "Price (lakhs)", height: 300 }
+  );
+
+  // Console prediction function
+  window.predictPrice = function(area){
+    console.log("Predicting price for area =", area, "sqft");
+    model.predict(tf.tensor2d([area],[1,1])).print();
+  };
+
+  console.log("Use predictPrice(area) in console");
+}
+
+run();
+</script>
+
+</body>
+</html>

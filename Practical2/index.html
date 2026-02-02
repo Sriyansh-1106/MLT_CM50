@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MNIST Digit Recognition</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #232526, #414345);
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      background: white;
+      padding: 25px 40px;
+      border-radius: 15px;
+      box-shadow: 0 12px 25px rgba(0,0,0,0.3);
+      text-align: center;
+      width: 480px;
+    }
+
+    h2 {
+      color: #222;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: #ff7b00;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #cc6400;
+    }
+
+    #output {
+      margin-top: 12px;
+      font-weight: bold;
+      color: #ff7b00;
+    }
+
+    .note {
+      font-size: 13px;
+      color: #555;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="card">
+  <h2>MNIST Digit Recognition</h2>
+  <p>CNN model (synthetic MNIST-like data)</p>
+
+  <button onclick="predictDigitUI()">Predict Random Digit</button>
+
+  <h3 id="output">Waiting for prediction...</h3>
+  <p class="note">Open console to see full calculations</p>
+</div>
+
+<script>
+let model;
+
+function createModel(){
+  const model = tf.sequential();
+
+  model.add(tf.layers.conv2d({
+    inputShape:[28,28,1],
+    filters:8,
+    kernelSize:3,
+    activation:'relu'
+  }));
+
+  model.add(tf.layers.maxPooling2d({poolSize:2}));
+  model.add(tf.layers.flatten());
+  model.add(tf.layers.dense({units:32, activation:'relu'}));
+  model.add(tf.layers.dense({units:10, activation:'softmax'}));
+
+  model.compile({
+    optimizer:'adam',
+    loss:'categoricalCrossentropy',
+    metrics:['accuracy']
+  });
+
+  return model;
+}
+
+async function run(){
+  console.log("Preparing synthetic MNIST-like data...");
+
+  const xs = tf.randomNormal([500,28,28,1]);
+  const labels = tf.oneHot(
+    tf.randomUniform([500],0,10,'int32'), 10
+  );
+
+  console.log("Input shape:", xs.shape);
+  console.log("Label shape:", labels.shape);
+
+  model = createModel();
+
+  console.log("Model Summary:");
+  model.summary();
+
+  console.log("Training started...");
+  await model.fit(xs, labels, {
+    epochs: 5,
+    batchSize: 64,
+    callbacks: tfvis.show.fitCallbacks(
+      { name: "Training Metrics" },
+      ['loss','acc'],
+      { height: 200 }
+    )
+  });
+
+  console.log("Training finished!");
+
+  // Console prediction function
+  window.predictDigit = function(){
+    const testImg = tf.randomNormal([1,28,28,1]);
+    const pred = model.predict(testImg);
+
+    pred.print();
+
+    const probs = pred.dataSync();
+    const predictedDigit = probs.indexOf(Math.max(...probs));
+
+    console.log("Prediction probabilities:", probs);
+    console.log("Predicted digit:", predictedDigit);
+  };
+
+  console.log("Use predictDigit() in console.");
+}
+
+function predictDigitUI(){
+  const testImg = tf.randomNormal([1,28,28,1]);
+  const pred = model.predict(testImg);
+
+  pred.data().then(res=>{
+    const predictedDigit = res.indexOf(Math.max(...res));
+
+    document.getElementById("output").innerText =
+      "Predicted Digit ≈ " + predictedDigit;
+
+    console.log("UI Prediction:");
+    console.log("Probabilities:", res);
+    console.log("Predicted Digit:", predictedDigit);
+  });
+}
+
+run();
+</script>
+
+</body>
+</html>

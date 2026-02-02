@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Regression Line Graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      background: white;
+      padding: 25px 40px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+      width: 420px;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    input {
+      padding: 8px;
+      width: 140px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-right: 6px;
+    }
+
+    button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      background: #2c7be5;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1a5fd0;
+    }
+
+    #output {
+      margin-top: 12px;
+      color: #2c7be5;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h2>Regression Line</h2>
+    <p>Actual Data + Regression Line</p>
+
+    <input type="number" id="userInput" placeholder="Enter X">
+    <button onclick="predict()">Predict</button>
+
+    <h4 id="output">Waiting for prediction...</h4>
+  </div>
+
+<script>
+let model;
+
+async function run(){
+  const xs = tf.tensor2d([1,2,3,4,5,6],[6,1]);
+  const ys = tf.tensor2d([3,5,7,9,11,13],[6,1]);
+
+  // Neural network model
+  model = tf.sequential();
+  model.add(tf.layers.dense({ units: 8, activation: 'relu', inputShape: [1] }));
+  model.add(tf.layers.dense({ units: 1 }));
+
+  model.compile({
+    optimizer: tf.train.adam(0.05),
+    loss: 'meanSquaredError'
+  });
+
+  await model.fit(xs, ys, {epochs:200});
+
+  // Original data
+  const xVals = Array.from(xs.dataSync());
+  const yVals = Array.from(ys.dataSync());
+
+  const actual = xVals.map((x,i)=>({x:x,y:yVals[i]}));
+
+  // Create smooth line for regression
+  const lineX = [];
+  for(let i=1;i<=6;i+=0.1){
+    lineX.push(i);
+  }
+
+  const lineTensor = tf.tensor2d(lineX,[lineX.length,1]);
+  const linePreds = model.predict(lineTensor);
+  const lineY = Array.from(linePreds.dataSync());
+
+  const lineData = lineX.map((x,i)=>({x:x,y:lineY[i]}));
+
+  // Plot scatter (actual) + line (predicted)
+  tfvis.render.scatterplot(
+    {name:"Actual Data"},
+    {values: actual},
+    {xLabel:"X", yLabel:"Y", height:300}
+  );
+
+  tfvis.render.linechart(
+    {name:"Regression Line"},
+    {values: lineData},
+    {xLabel:"X", yLabel:"Y", height:300}
+  );
+
+  console.log("Training complete");
+}
+
+function predict(){
+  const val = Number(document.getElementById("userInput").value);
+
+  const pred = model.predict(tf.tensor2d([val],[1,1]));
+  pred.data().then(res=>{
+    document.getElementById("output").innerText =
+      "Predicted Y ≈ " + res[0].toFixed(2);
+  });
+}
+
+run();
+</script>
+
+</body>
+</html>

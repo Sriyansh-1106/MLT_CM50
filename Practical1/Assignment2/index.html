@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TFJS Regression Graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #43cea2, #185a9d);
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      background: white;
+      padding: 25px 40px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+      width: 480px;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    p {
+      color: #555;
+      font-size: 14px;
+    }
+
+    .note {
+      margin-top: 10px;
+      color: #2c7be5;
+      font-weight: bold;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h2>Linear Regression with Noise</h2>
+    <p>Original Data + Regression Line</p>
+    <p class="note">Use <b>predictValue(x)</b> in console</p>
+  </div>
+
+<script>
+async function run() {
+
+  // Generate noisy data: y = 2x + 1 + noise
+  const xVals = [];
+  const yVals = [];
+
+  for (let i = 1; i <= 20; i++) {
+    const noise = (Math.random() - 0.5) * 4;
+    xVals.push(i);
+    yVals.push(2 * i + 1 + noise);
+  }
+
+  const xs = tf.tensor2d(xVals, [xVals.length, 1]);
+  const ys = tf.tensor2d(yVals, [yVals.length, 1]);
+
+  const data = xVals.map((x, i) => ({
+    x: x,
+    y: yVals[i]
+  }));
+
+  // Plot original data
+  tfvis.render.scatterplot(
+    { name: "Original Noisy Data" },
+    { values: data },
+    { xLabel: "X", yLabel: "Y", height: 300 }
+  );
+
+  // Model
+  window.model = tf.sequential();
+  model.add(tf.layers.dense({ units: 1, inputShape: [1] }));
+
+  model.compile({
+    optimizer: 'sgd',
+    loss: 'meanSquaredError'
+  });
+
+  // Train with loss graph
+  await model.fit(xs, ys, {
+    epochs: 150,
+    callbacks: tfvis.show.fitCallbacks(
+      { name: "Training Loss" },
+      ['loss'],
+      { height: 200 }
+    )
+  });
+
+  // Create smooth X values for regression line
+  const lineX = [];
+  for (let i = 1; i <= 20; i += 0.1) {
+    lineX.push(i);
+  }
+
+  const lineTensor = tf.tensor2d(lineX, [lineX.length, 1]);
+  const linePreds = model.predict(lineTensor);
+  const lineY = Array.from(linePreds.dataSync());
+
+  const lineData = lineX.map((x, i) => ({
+    x: x,
+    y: lineY[i]
+  }));
+
+  // Plot original data + regression line together
+  tfvis.render.scatterplot(
+    { name: "Original Data with Regression Line" },
+    {
+      values: [data, lineData],
+      series: ["Original Data", "Regression Line"]
+    },
+    { xLabel: "X", yLabel: "Y", height: 300 }
+  );
+
+  // Console prediction function
+  window.predictValue = function(x){
+    console.log("Predicting for x =", x);
+    model.predict(tf.tensor2d([x],[1,1])).print();
+  };
+
+  console.log("Use predictValue(x) in console");
+}
+
+run();
+</script>
+
+</body>
+</html>

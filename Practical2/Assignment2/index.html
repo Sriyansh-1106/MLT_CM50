@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Real MNIST Digit Recognition</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.5.1"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      background: white;
+      padding: 25px 35px;
+      border-radius: 18px;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+      text-align: center;
+    }
+
+    canvas {
+      border: 3px solid black;
+      border-radius: 10px;
+      background: black;
+      touch-action: none;
+    }
+
+    button {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      background: #5a67d8;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 4px;
+    }
+
+    #output {
+      margin-top: 10px;
+      font-weight: bold;
+      color: #5a67d8;
+    }
+  </style>
+</head>
+
+<body>
+<div class="card">
+  <h2>Draw a Digit (0–9)</h2>
+  <canvas id="canvas" width="280" height="280"></canvas><br>
+  <button onclick="predictCanvas()">Predict</button>
+  <button onclick="clearCanvas()">Clear</button>
+  <div id="output">Predicted Digit: -</div>
+</div>
+
+<script>
+let model, ctx, drawing=false;
+const canvas = document.getElementById("canvas");
+ctx = canvas.getContext("2d",{willReadFrequently:true});
+
+// init canvas
+ctx.fillStyle="black";
+ctx.fillRect(0,0,280,280);
+ctx.strokeStyle="white";
+ctx.lineWidth=15;
+ctx.lineCap="round";
+
+// open visor
+tfvis.visor().open();
+
+// drawing
+canvas.addEventListener("pointerdown", e=>{drawing=true; draw(e);});
+canvas.addEventListener("pointermove", draw);
+canvas.addEventListener("pointerup", ()=>{drawing=false; ctx.beginPath();});
+
+function draw(e){
+  if(!drawing) return;
+  const r = canvas.getBoundingClientRect();
+  ctx.lineTo(e.clientX-r.left, e.clientY-r.top);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(e.clientX-r.left, e.clientY-r.top);
+}
+
+function clearCanvas(){
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,280,280);
+  ctx.beginPath();
+  document.getElementById("output").innerText="Predicted Digit: -";
+}
+
+// ============
