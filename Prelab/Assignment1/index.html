@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tensor Dimensions</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #43cea2, #185a9d);
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      background: white;
+      padding: 30px 50px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+      min-width: 300px;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 15px;
+    }
+
+    p {
+      font-size: 16px;
+      color: #555;
+    }
+
+    .note {
+      margin-top: 15px;
+      color: #2c7be5;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h2>Tensor Dimensions</h2>
+    <p>Open the browser console to see tensor values.</p>
+    <p class="note">Scalar, Vector, and Matrix created using TensorFlow.js</p>
+  </div>
+
+  <script>
+    const scalar = tf.scalar(5);
+    const vector = tf.tensor([1, 2, 3]);
+    const matrix = tf.tensor([[1, 2], [3, 4]]);
+
+    console.log("Scalar (0D):");
+    scalar.print();
+
+    console.log("Vector (1D):");
+    vector.print();
+
+    console.log("Matrix (2D):");
+    matrix.print();
+
+    console.log("Scalar shape:", scalar.shape);
+    console.log("Vector shape:", vector.shape);
+    console.log("Matrix shape:", matrix.shape);
+
+    scalar.dispose();
+    vector.dispose();
+    matrix.dispose();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vector Operations</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      background: white;
+      padding: 30px 50px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+      min-width: 320px;
+    }
+
+    h2 {
+      color: #333;
+    }
+
+    p {
+      color: #555;
+      font-size: 16px;
+    }
+
+    .result {
+      margin-top: 15px;
+      font-weight: bold;
+      color: #2c7be5;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h2>Vector Operations</h2>
+    <p>Open the browser console to see tensor outputs.</p>
+    <p class="result" id="output">Calculating...</p>
+  </div>
+
+  <script>
+    const v1 = tf.tensor([1, 2, 3]);
+    const v2 = tf.tensor([4, 5, 6]);
+
+    console.log("Vector v1:");
+    v1.print();
+
+    console.log("Vector v2:");
+    v2.print();
+
+    console.log("Addition (v1 + v2):");
+    const addResult = v1.add(v2);
+    addResult.print();
+
+    console.log("Multiplication (v1 * v2):");
+    const mulResult = v1.mul(v2);
+    mulResult.print();
+
+    // Show results on page
+    document.getElementById("output").innerText =
+      "Addition: " + addResult.dataSync().join(", ") +
+      " | Multiplication: " + mulResult.dataSync().join(", ");
+
+    // Free memory
+    v1.dispose();
+    v2.dispose();
+    addResult.dispose();
+    mulResult.dispose();
+  </script>
+
+</body>
+</html>

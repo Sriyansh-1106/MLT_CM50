@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TensorFlow.js Verify</title>
+
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      background: white;
+      padding: 30px 50px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+      min-width: 320px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    #output {
+      font-size: 20px;
+      color: #2c7be5;
+      font-weight: bold;
+      background: #f1f5ff;
+      padding: 10px 15px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>TensorFlow.js Verification</h1>
+    <p id="output">Loading TensorFlow.js...</p>
+  </div>
+
+  <!-- TensorFlow.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+  <script>
+    const output = document.getElementById("output");
+
+    const a = tf.tensor([1, 2, 3]);
+    const b = tf.tensor([4, 5, 6]);
+
+    console.log("Tensor a:");
+    a.print();
+
+    console.log("Tensor b:");
+    b.print();
+
+    const result = a.add(b);
+
+    console.log("a + b =");
+    result.print();
+
+    output.innerText = "Result: " + result.dataSync().join(", ");
+
+    a.dispose();
+    b.dispose();
+    result.dispose();
+  </script>
+
+</body>
+</html>
