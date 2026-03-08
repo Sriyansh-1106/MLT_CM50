@@ -3,292 +3,359 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Assignment 3 – Model Comparison</title>
+  <title>Assignment 3 – MobileNet 3-Way Comparison</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #050810; --surface: #0c1120; --surface2: #111827;
-      --border: #1a2540; --accent: #7c3aed; --accent2: #f59e0b;
-      --text: #e2e8f0; --muted: #64748b;
+      --bg: #06080f; --surface: #0d1320; --surface2: #131b2e; --border: #1e2d47;
+      --v1: #00e5ff; --v2: #a78bfa; --ef: #34d399;
+      --text: #e2e8f0; --muted: #64748b; --green: #22c55e;
     }
-    body {
-      font-family: 'DM Mono', monospace;
-      background: var(--bg); color: var(--text); min-height: 100vh;
-    }
+    body { font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text); min-height: 100vh; }
     body::before {
-      content: ''; position: fixed; inset: 0;
-      background-image:
-        linear-gradient(rgba(124,58,237,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(124,58,237,0.025) 1px, transparent 1px);
-      background-size: 50px 50px; pointer-events: none; z-index: 0;
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: linear-gradient(rgba(0,229,255,.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(167,139,250,.02) 1px, transparent 1px);
+      background-size: 56px 56px;
     }
-    .container { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; padding: 2rem; }
+    .glow1 { position: fixed; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(0,229,255,.07) 0%, transparent 70%); top:-160px; left:-160px; pointer-events:none; z-index:0; }
+    .glow2 { position: fixed; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(167,139,250,.07) 0%, transparent 70%); bottom:-160px; right:-160px; pointer-events:none; z-index:0; }
+    .container { position: relative; z-index: 1; max-width: 1140px; margin: 0 auto; padding: 2rem; }
 
+    /* NAV */
     .nav { display: flex; align-items: center; gap: 1rem; margin-bottom: 2.5rem; }
-    .nav a { color: var(--muted); text-decoration: none; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; transition: color 0.2s; }
-    .nav a:hover { color: var(--accent); }
+    .nav a { color: var(--muted); text-decoration: none; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; transition: color .2s; }
+    .nav a:hover { color: var(--v1); }
     .nav-sep { color: var(--border); }
-    .nav-current { color: var(--accent); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; }
+    .nav-current { color: var(--v1); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; }
 
+    /* HEADER */
     .header { margin-bottom: 2rem; }
-    .header-label { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.5rem; }
-    .header h1 { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
-    .header p { color: var(--muted); font-size: 0.8rem; line-height: 1.6; max-width: 600px; }
+    .header-label { font-size: .62rem; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); margin-bottom: .5rem; }
+    .header h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; line-height: 1.1; margin-bottom: .5rem; }
+    .header h1 .v1 { color: var(--v1); }
+    .header h1 .v2 { color: var(--v2); }
+    .header h1 .ef { color: var(--ef); }
+    .header p { color: var(--muted); font-size: .78rem; line-height: 1.7; max-width: 680px; }
 
-    /* INPUT SECTION */
-    .input-section {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem;
-      position: relative; overflow: hidden;
-    }
-    .input-section::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0;
-      height: 1px; background: linear-gradient(90deg, transparent, rgba(124,58,237,0.5), transparent);
-    }
-    .panel-title { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+    /* LEGEND */
+    .legend { display: flex; gap: .8rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .legend-card { flex: 1; min-width: 200px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1rem; display: flex; align-items: flex-start; gap: .8rem; position: relative; overflow: hidden; }
+    .legend-card.c1 { border-color: rgba(0,229,255,.2); }
+    .legend-card.c1::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:var(--v1); }
+    .legend-card.c2 { border-color: rgba(167,139,250,.2); }
+    .legend-card.c2::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:var(--v2); }
+    .legend-card.c3 { border-color: rgba(52,211,153,.2); }
+    .legend-card.c3::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:var(--ef); }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .legend-dot.d1 { background: var(--v1); box-shadow: 0 0 7px var(--v1); }
+    .legend-dot.d2 { background: var(--v2); box-shadow: 0 0 7px var(--v2); }
+    .legend-dot.d3 { background: var(--ef); box-shadow: 0 0 7px var(--ef); }
+    .legend-name { font-family: 'Syne', sans-serif; font-size: .82rem; font-weight: 700; margin-bottom: .2rem; }
+    .legend-meta { font-size: .6rem; color: var(--muted); line-height: 1.6; }
+    .legend-meta span { display: inline-block; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: .1rem .35rem; margin: .1rem .1rem 0 0; }
 
-    .input-layout { display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center; }
+    /* LOAD PROGRESS */
+    .load-progress { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem; }
+    .load-title { font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: .9rem; }
+    .load-row { display: flex; align-items: center; gap: .8rem; margin-bottom: .8rem; }
+    .load-row:last-child { margin-bottom: 0; }
+    .load-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background .3s, box-shadow .3s; }
+    .load-dot.a1 { background: var(--v1); animation: pulse 1s infinite; }
+    .load-dot.a2 { background: var(--v2); animation: pulse 1s infinite; }
+    .load-dot.a3 { background: var(--ef); animation: pulse 1s infinite; }
+    .load-dot.done { background: var(--green); box-shadow: 0 0 6px var(--green); animation: none; }
+    .load-col { flex: 1; display: flex; flex-direction: column; gap: .3rem; }
+    .load-top { display: flex; justify-content: space-between; align-items: center; }
+    .load-label { font-size: .7rem; color: var(--muted); }
+    .load-label.done { color: var(--text); }
+    .load-right { display: flex; gap: .5rem; align-items: center; }
+    .load-pct { font-size: .65rem; color: var(--muted); min-width: 30px; text-align: right; }
+    .load-time { font-size: .63rem; color: var(--green); }
+    .load-track { height: 4px; background: var(--surface2); border-radius: 100px; overflow: hidden; }
+    .load-fill { height: 100%; border-radius: 100px; width: 0%; transition: width .35s ease; }
+    .fill1 { background: linear-gradient(90deg, var(--v1), rgba(0,229,255,.3)); }
+    .fill2 { background: linear-gradient(90deg, var(--v2), rgba(167,139,250,.3)); }
+    .fill3 { background: linear-gradient(90deg, var(--ef), rgba(52,211,153,.3)); }
+    .load-sub { font-size: .6rem; color: var(--muted); min-height: .85rem; }
 
-    .img-preview {
-      width: 120px; height: 120px; border-radius: 10px; overflow: hidden;
-      background: var(--surface2); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .img-preview img { width: 100%; height: 100%; object-fit: cover; display: none; }
-    .img-preview-placeholder { color: var(--muted); font-size: 0.65rem; text-align: center; }
-    .img-preview-placeholder span { font-size: 1.8rem; display: block; margin-bottom: 0.2rem; }
-
-    .input-controls { display: flex; flex-direction: column; gap: 0.6rem; }
-    .url-input {
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 8px; padding: 0.6rem 0.8rem;
-      color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.72rem;
-      outline: none; transition: border-color 0.2s; width: 100%;
-    }
-    .url-input:focus { border-color: var(--accent); }
-
-    .quick-imgs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .quick-btn {
-      background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
-      padding: 0.3rem 0.6rem; font-family: 'DM Mono', monospace; font-size: 0.65rem;
-      color: var(--muted); cursor: pointer; transition: all 0.2s;
-    }
-    .quick-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-    .upload-label {
-      display: inline-flex; align-items: center; gap: 0.4rem;
-      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-      padding: 0.6rem 1rem; font-size: 0.72rem; color: var(--muted);
-      cursor: pointer; transition: all 0.2s; white-space: nowrap;
-    }
-    .upload-label:hover { border-color: var(--accent); color: var(--text); }
+    /* INPUT */
+    .input-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem; position: relative; overflow: hidden; }
+    .input-section::before { content:''; position:absolute; top:0;left:0;right:0; height:1px; background: linear-gradient(90deg, transparent, var(--v1), var(--v2), var(--ef), transparent); opacity: .4; }
+    .panel-title { font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+    .input-row { display: grid; grid-template-columns: 130px 1fr; gap: 1.2rem; align-items: start; }
+    .img-preview-box { width: 130px; height: 130px; border-radius: 10px; overflow: hidden; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+    .img-preview-box img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .img-ph { color: var(--muted); font-size: .62rem; text-align: center; }
+    .img-ph span { font-size: 1.8rem; display: block; margin-bottom: .2rem; }
+    .input-right { display: flex; flex-direction: column; gap: .7rem; }
+    .quick-row { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .quick-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: .3rem .65rem; font-family: 'DM Mono', monospace; font-size: .65rem; color: var(--muted); cursor: pointer; transition: all .2s; }
+    .quick-btn:hover { border-color: var(--v1); color: var(--v1); }
+    .quick-btn.active { border-color: var(--v1); color: var(--v1); background: rgba(0,229,255,.06); }
+    .upload-label { display: inline-flex; align-items: center; gap: .5rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .55rem .9rem; font-size: .7rem; color: var(--muted); cursor: pointer; transition: all .2s; align-self: flex-start; }
+    .upload-label:hover { border-color: var(--v1); color: var(--text); }
     .upload-label input { display: none; }
+    .compare-btn { width: 100%; background: linear-gradient(135deg, var(--v1), var(--v2), var(--ef)); color: #06080f; border: none; border-radius: 10px; padding: .85rem; font-family: 'DM Mono', monospace; font-weight: 500; font-size: .8rem; letter-spacing: .04em; cursor: pointer; transition: all .2s; margin-top: .5rem; }
+    .compare-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 30px rgba(0,229,255,.12); }
+    .compare-btn:disabled { opacity: .35; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
 
-    .compare-btn {
-      width: 100%; background: var(--accent); color: #fff;
-      border: none; border-radius: 10px; padding: 0.85rem;
-      font-family: 'DM Mono', monospace; font-weight: 500;
-      font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
-      margin-top: 0.5rem;
-    }
-    .compare-btn:hover { background: #9333ea; transform: translateY(-1px); }
-    .compare-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    /* STATS STRIP */
+    .stats-strip { display: none; grid-template-columns: repeat(5,1fr); gap: .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem; }
+    .strip-stat { text-align: center; }
+    .strip-val { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; }
+    .sv1 { color: var(--v1); } .sv2 { color: var(--v2); } .sv3 { color: var(--ef); } .sn { color: var(--text); }
+    .strip-key { font-size: .55rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: .2rem; }
 
-    /* RESULTS GRID */
-    .results-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;
-    }
+    /* RESULTS — 3 columns */
+    .results-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    .model-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.4rem; position: relative; overflow: hidden; min-height: 320px; }
+    .model-panel.p1 { border-color: rgba(0,229,255,.15); }
+    .model-panel.p1::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--v1),transparent); }
+    .model-panel.p2 { border-color: rgba(167,139,250,.15); }
+    .model-panel.p2::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--v2),transparent); }
+    .model-panel.p3 { border-color: rgba(52,211,153,.15); }
+    .model-panel.p3::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--ef),transparent); }
+    .model-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.1rem; }
+    .model-name { font-family: 'Syne', sans-serif; font-size: .95rem; font-weight: 700; }
+    .model-badge { font-size: .55rem; letter-spacing: .1em; text-transform: uppercase; border-radius: 100px; padding: .2rem .55rem; border: 1px solid; }
+    .bv1 { color:var(--v1); border-color:rgba(0,229,255,.3); background:rgba(0,229,255,.07); }
+    .bv2 { color:var(--v2); border-color:rgba(167,139,250,.3); background:rgba(167,139,250,.07); }
+    .bef { color:var(--ef); border-color:rgba(52,211,153,.3); background:rgba(52,211,153,.07); }
 
-    .model-panel {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 14px; padding: 1.5rem; position: relative; overflow: hidden;
-      min-height: 300px;
-    }
-    .model-panel.variant-a::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0;
-      height: 2px; background: linear-gradient(90deg, var(--accent), transparent);
-    }
-    .model-panel.variant-b::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0;
-      height: 2px; background: linear-gradient(90deg, var(--accent2), transparent);
-    }
-
-    .model-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 1.2rem;
-    }
-    .model-name { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; }
-    .model-badge {
-      font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase;
-      border-radius: 100px; padding: 0.25rem 0.6rem; border: 1px solid;
-    }
-    .badge-a { color: var(--accent); border-color: rgba(124,58,237,0.3); background: rgba(124,58,237,0.08); }
-    .badge-b { color: var(--accent2); border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
-
-    /* PREDICTIONS */
-    .pred-item { margin-bottom: 1rem; animation: slideIn 0.4s ease both; }
-    .pred-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem; }
-    .pred-label { font-size: 0.75rem; max-width: 72%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; }
-    .pred-pct-a { font-size: 0.7rem; color: var(--accent); font-weight: 500; }
-    .pred-pct-b { font-size: 0.7rem; color: var(--accent2); font-weight: 500; }
+    /* PRED BARS */
+    .pred-item { margin-bottom: .95rem; animation: slideIn .4s ease both; opacity:0; }
+    .pred-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .3rem; }
+    .pred-label { font-size: .7rem; max-width: 72%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; }
+    .pct1 { font-size: .66rem; color: var(--v1); font-weight: 500; }
+    .pct2 { font-size: .66rem; color: var(--v2); font-weight: 500; }
+    .pct3 { font-size: .66rem; color: var(--ef); font-weight: 500; }
     .bar-track { height: 5px; background: var(--surface2); border-radius: 100px; overflow: hidden; }
-    .bar-a { height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--accent), rgba(124,58,237,0.4)); transition: width 0.8s cubic-bezier(0.25,1,0.5,1); }
-    .bar-b { height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--accent2), rgba(245,158,11,0.4)); transition: width 0.8s cubic-bezier(0.25,1,0.5,1); }
+    .bar1 { height:100%; border-radius:100px; background:linear-gradient(90deg,var(--v1),rgba(0,229,255,.3)); transition:width .85s cubic-bezier(.25,1,.5,1); }
+    .bar2 { height:100%; border-radius:100px; background:linear-gradient(90deg,var(--v2),rgba(167,139,250,.3)); transition:width .85s cubic-bezier(.25,1,.5,1); }
+    .bar3 { height:100%; border-radius:100px; background:linear-gradient(90deg,var(--ef),rgba(52,211,153,.3)); transition:width .85s cubic-bezier(.25,1,.5,1); }
+    .rank-chip { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%; font-size:.5rem; background:rgba(255,255,255,.05); border:1px solid var(--border); margin-right:.3rem; flex-shrink:0; }
 
-    .rank-chip {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 16px; height: 16px; border-radius: 50%; font-size: 0.5rem;
-      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
-      margin-right: 0.35rem; flex-shrink: 0;
-    }
+    /* ANALYSIS */
+    .analysis-panel { display:none; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; }
+    .analysis-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-top:1rem; }
+    .analysis-card { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:1rem; }
+    .analysis-card h4 { font-family:'Syne',sans-serif; font-size:.76rem; font-weight:700; margin-bottom:.5rem; }
+    .analysis-card p { font-size:.67rem; color:var(--muted); line-height:1.65; }
+    .analysis-card .hi { color:var(--text); }
 
-    /* INFERENCE STATS */
-    .stats-panel {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem;
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
-    }
-    .stat-item { text-align: center; }
-    .stat-val { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; margin-bottom: 0.2rem; }
-    .stat-val.a { color: var(--accent); }
-    .stat-val.b { color: var(--accent2); }
-    .stat-key { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-
-    /* PLACEHOLDER */
-    .pred-placeholder {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      height: 200px; color: var(--muted); gap: 0.5rem;
-    }
-    .pred-placeholder span { font-size: 2rem; }
-    .pred-placeholder p { font-size: 0.72rem; }
-
-    /* SPINNER */
-    .spinner-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 1rem; }
-    .spinner { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
-    .spinner-text { font-size: 0.7rem; color: var(--muted); }
+    /* PLACEHOLDERS / SPINNERS */
+    .pred-placeholder { display:flex; flex-direction:column; align-items:center; justify-content:center; height:220px; color:var(--muted); gap:.5rem; }
+    .pred-placeholder span { font-size:1.8rem; }
+    .pred-placeholder p { font-size:.68rem; text-align:center; }
+    .spinner-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; height:220px; gap:1rem; }
+    .spinner { width:32px; height:32px; border-radius:50%; border:2px solid var(--border); animation:spin .85s linear infinite; }
+    .sp1 { border-top-color:var(--v1); } .sp2 { border-top-color:var(--v2); } .sp3 { border-top-color:var(--ef); }
+    .spinner-text { font-size:.65rem; color:var(--muted); }
 
     /* STATUS */
-    .status-bar {
-      padding: 0.8rem 1rem; background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; display: flex; align-items: center; gap: 0.6rem;
-      font-size: 0.7rem; color: var(--muted);
-    }
-    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-    .status-dot.ready { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
-    .status-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
-    .status-dot.error { background: #ef4444; }
+    .status-bar { padding:.8rem 1rem; background:var(--surface); border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; gap:.6rem; font-size:.68rem; color:var(--muted); }
+    .status-dot { width:7px; height:7px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+    .status-dot.ready { background:var(--green); box-shadow:0 0 6px var(--green); }
+    .status-dot.loading { background:#f59e0b; animation:pulse 1s infinite; }
+    .status-dot.error { background:#ef4444; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
     @keyframes slideIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 
-    @media(max-width:640px) {
-      .results-grid { grid-template-columns: 1fr; }
-      .stats-panel { grid-template-columns: 1fr 1fr; }
-      .input-layout { grid-template-columns: 1fr; }
+    @media(max-width:800px) {
+      .results-grid { grid-template-columns:1fr; }
+      .stats-strip { grid-template-columns:repeat(3,1fr); }
+      .analysis-grid { grid-template-columns:1fr; }
+      .input-row { grid-template-columns:1fr; }
+      .legend { flex-direction:column; }
     }
   </style>
 </head>
 <body>
-<div class="container">
+  <div class="glow1"></div>
+  <div class="glow2"></div>
+  <div class="container">
 
-  <nav class="nav">
-    <a href="../index.html">← Home</a>
-    <span class="nav-sep">/</span>
-    <span class="nav-current">Assignment 3</span>
-  </nav>
+    <nav class="nav">
+      <a href="../index.html">← Home</a>
+      <span class="nav-sep">/</span>
+      <span class="nav-current">Assignment 3</span>
+    </nav>
 
-  <div class="header">
-    <div class="header-label">Assignment 03</div>
-    <h1>Model Comparison</h1>
-    <p>Upload or select an image and see MobileNet v2 predictions displayed side-by-side in two views — comparing confidence scores, top predictions, and inference timing across alpha variants.</p>
-  </div>
+    <div class="header">
+      <div class="header-label">Assignment 03 · 3-Model Comparison</div>
+      <h1>
+        <span class="v1">MobileNet v1</span> vs
+        <span class="v2">MobileNet v2</span> vs
+        <span class="ef">MobileNet v1-Lite</span>
+      </h1>
+      <p>Compare three MobileNet variants — all load from CDN in under 3 seconds. See how architecture width (alpha) and version affect predictions, confidence scores, and inference speed, running entirely in-browser via WebGL.</p>
+    </div>
 
-  <!-- Input -->
-  <div class="input-section">
-    <div class="panel-title">Image Input</div>
-    <div class="input-layout">
-      <div class="img-preview">
-        <img id="previewImg" crossorigin="anonymous"/>
-        <div class="img-preview-placeholder" id="previewPh">
-          <span>🖼️</span>no image
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-card c1">
+        <div class="legend-dot d1"></div>
+        <div>
+          <div class="legend-name">MobileNet v1 (α1.0)</div>
+          <div class="legend-meta">
+            Original full-width mobile CNN · 2017.<br/>
+            <span>Standard depthwise conv</span><span>~4.2M params</span><span>Top-1 ≈ 70.6%</span>
+          </div>
+        </div>
+      </div>
+      <div class="legend-card c2">
+        <div class="legend-dot d2"></div>
+        <div>
+          <div class="legend-name">MobileNet v2 (α1.0)</div>
+          <div class="legend-meta">
+            Inverted residuals + linear bottlenecks · 2018.<br/>
+            <span>Inverted residuals</span><span>~3.4M params</span><span>Top-1 ≈ 71.8%</span>
+          </div>
+        </div>
+      </div>
+      <div class="legend-card c3">
+        <div class="legend-dot d3"></div>
+        <div>
+          <div class="legend-name">MobileNet v1-Lite (α0.25)</div>
+          <div class="legend-meta">
+            Ultra-small width multiplier variant · fastest inference.<br/>
+            <span>α=0.25 width</span><span>~0.5M params</span><span>Top-1 ≈ 49.4%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load progress -->
+    <div class="load-progress" id="loadProgress">
+      <div class="load-title">Model Loading</div>
+
+      <div class="load-row">
+        <div class="load-dot a1" id="dot1"></div>
+        <div class="load-col">
+          <div class="load-top">
+            <div class="load-label" id="lbl1">Loading MobileNet v1 (α1.0)…</div>
+            <div class="load-right">
+              <div class="load-pct" id="pct1">0%</div>
+              <div class="load-time" id="time1"></div>
+            </div>
+          </div>
+          <div class="load-track"><div class="load-fill fill1" id="fill1"></div></div>
+          <div class="load-sub" id="sub1">Fetching weights from CDN…</div>
         </div>
       </div>
 
-      <div class="input-controls">
-        <div class="quick-imgs">
-          <button class="quick-btn" onclick="loadLocal('dog.jpg')">🐕 Dog</button>
-          <button class="quick-btn" onclick="loadLocal('car.jpg')">🚗 Car</button>
-          <button class="quick-btn" onclick="loadLocal('chair.jpg')">🪑 Chair</button>
-          <button class="quick-btn" onclick="loadLocal('laptop.jpg')">💻 Laptop</button>
-          <button class="quick-btn" onclick="loadLocal('pineapple.jpg')">🍍 Pineapple</button>
+      <div class="load-row">
+        <div class="load-dot" id="dot2"></div>
+        <div class="load-col">
+          <div class="load-top">
+            <div class="load-label" id="lbl2">MobileNet v2 (α1.0) — queued</div>
+            <div class="load-right">
+              <div class="load-pct" id="pct2">—</div>
+              <div class="load-time" id="time2"></div>
+            </div>
+          </div>
+          <div class="load-track"><div class="load-fill fill2" id="fill2"></div></div>
+          <div class="load-sub" id="sub2">Waiting…</div>
         </div>
-        <label class="upload-label">
-          📂 Upload Image
-          <input type="file" accept="image/*" onchange="handleUpload(event)"/>
-        </label>
       </div>
 
-      <div></div>
+      <div class="load-row">
+        <div class="load-dot" id="dot3"></div>
+        <div class="load-col">
+          <div class="load-top">
+            <div class="load-label" id="lbl3">MobileNet v1-Lite (α0.25) — queued</div>
+            <div class="load-right">
+              <div class="load-pct" id="pct3">—</div>
+              <div class="load-time" id="time3"></div>
+            </div>
+          </div>
+          <div class="load-track"><div class="load-fill fill3" id="fill3"></div></div>
+          <div class="load-sub" id="sub3">Waiting…</div>
+        </div>
+      </div>
     </div>
-    <button class="compare-btn" id="compareBtn" onclick="runComparison()" disabled>
-      Run Comparison →
-    </button>
+
+    <!-- Image input -->
+    <div class="input-section">
+      <div class="panel-title">Select Image</div>
+      <div class="input-row">
+        <div class="img-preview-box">
+          <img id="previewImg" crossorigin="anonymous"/>
+          <div class="img-ph" id="previewPh"><span>🖼️</span>no image</div>
+        </div>
+        <div class="input-right">
+          <div class="quick-row">
+            <button class="quick-btn" onclick="loadLocal('dog.jpg',this)">🐕 Dog</button>
+            <button class="quick-btn" onclick="loadLocal('car.jpg',this)">🚗 Car</button>
+            <button class="quick-btn" onclick="loadLocal('chair.jpg',this)">🪑 Chair</button>
+            <button class="quick-btn" onclick="loadLocal('laptop.jpg',this)">💻 Laptop</button>
+            <button class="quick-btn" onclick="loadLocal('pineapple.jpg',this)">🍍 Pineapple</button>
+          </div>
+          <label class="upload-label">
+            📂 Upload your own image
+            <input type="file" accept="image/*" onchange="handleUpload(event)"/>
+          </label>
+        </div>
+      </div>
+      <button class="compare-btn" id="compareBtn" onclick="runComparison()" disabled>⚡ Run 3-Model Comparison</button>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="stats-strip" id="statsStrip">
+      <div class="strip-stat"><div class="strip-val sv1" id="statT1">—</div><div class="strip-key">v1 ms</div></div>
+      <div class="strip-stat"><div class="strip-val sv2" id="statT2">—</div><div class="strip-key">v2 ms</div></div>
+      <div class="strip-stat"><div class="strip-val sv3" id="statT3">—</div><div class="strip-key">v1-Lite ms</div></div>
+      <div class="strip-stat"><div class="strip-val sn" id="statAgree">—</div><div class="strip-key">All Agree?</div></div>
+      <div class="strip-stat"><div class="strip-val sn" id="statFastest">—</div><div class="strip-key">Fastest</div></div>
+    </div>
+
+    <!-- Results: 3 columns -->
+    <div class="results-grid">
+      <div class="model-panel p1">
+        <div class="model-header">
+          <div class="model-name">MobileNet v1</div>
+          <div class="model-badge bv1">Classic · 2017</div>
+        </div>
+        <div id="results1"><div class="pred-placeholder"><span>🔵</span><p>Run comparison<br/>to see results</p></div></div>
+      </div>
+      <div class="model-panel p2">
+        <div class="model-header">
+          <div class="model-name">MobileNet v2</div>
+          <div class="model-badge bv2">Improved · 2018</div>
+        </div>
+        <div id="results2"><div class="pred-placeholder"><span>🟣</span><p>Run comparison<br/>to see results</p></div></div>
+      </div>
+      <div class="model-panel p3">
+        <div class="model-header">
+          <div class="model-name">MobileNet v1-Lite</div>
+          <div class="model-badge bef">Ultra-Fast · α0.25</div>
+        </div>
+        <div id="results3"><div class="pred-placeholder"><span>🟢</span><p>Run comparison<br/>to see results</p></div></div>
+      </div>
+    </div>
+
+    <!-- Analysis -->
+    <div class="analysis-panel" id="analysisPanel">
+      <div class="panel-title">Architecture Analysis</div>
+      <div class="analysis-grid">
+        <div class="analysis-card"><h4>⚡ Speed Ranking</h4><p id="analysisSA">—</p></div>
+        <div class="analysis-card"><h4>🤝 Label Agreement</h4><p id="analysisAG">—</p></div>
+        <div class="analysis-card"><h4>📊 Confidence Pattern</h4><p id="analysisCP">—</p></div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="statusDot"></div>
+      <span id="statusText">Initialising TensorFlow.js WebGL backend…</span>
+    </div>
+
   </div>
-
-  <!-- Stats -->
-  <div class="stats-panel" id="statsPanel" style="display:none">
-    <div class="stat-item">
-      <div class="stat-val a" id="timeA">—</div>
-      <div class="stat-key">MobileNet v2 (α1.0) ms</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-val b" id="timeB">—</div>
-      <div class="stat-key">MobileNet v2 (α0.5) ms</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-val a" id="topA">—</div>
-      <div class="stat-key">Top-1 Confidence A</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-val b" id="topB">—</div>
-      <div class="stat-key">Top-1 Confidence B</div>
-    </div>
-  </div>
-
-  <!-- Results -->
-  <div class="results-grid">
-    <div class="model-panel variant-a">
-      <div class="model-header">
-        <div class="model-name">MobileNet v2</div>
-        <div class="model-badge badge-a">alpha 1.0 · Full</div>
-      </div>
-      <div id="resultsA">
-        <div class="pred-placeholder"><span>🔮</span><p>Run comparison to see results</p></div>
-      </div>
-    </div>
-
-    <div class="model-panel variant-b">
-      <div class="model-header">
-        <div class="model-name">MobileNet v2</div>
-        <div class="model-badge badge-b">alpha 0.5 · Lite</div>
-      </div>
-      <div id="resultsB">
-        <div class="pred-placeholder"><span>🔮</span><p>Run comparison to see results</p></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="status-bar">
-    <div class="status-dot loading" id="statusDot"></div>
-    <span id="statusText">Loading TensorFlow.js…</span>
-  </div>
-
-</div>
-<script src="compare.js"></script>
+  <script src="compare.js"></script>
 </body>
 </html>
