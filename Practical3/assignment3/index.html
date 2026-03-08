@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>A3 — Model Comparison</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c10;--surface:#0d1117;--surface2:#161b22;--border:#21262d;
+  --green:#39d353;--green2:#26a641;--cyan:#58a6ff;--yellow:#e3b341;
+  --red:#f85149;--muted:#8b949e;--text:#e6edf3;--text2:#c9d1d9;
+  --dense-col:#39d353;--lstm-col:#e3b341;
+}
+body{font-family:'Space Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:999}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(57,211,83,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(57,211,83,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:1.5rem}
+.nav{display:flex;align-items:center;gap:.7rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.nav a{color:var(--muted);text-decoration:none}.nav a:hover{color:var(--yellow)}
+.nav-sep{color:var(--border)}.nav-cur{color:var(--yellow)}
+.hdr{margin-bottom:2rem}
+.hdr-tag{font-size:.55rem;letter-spacing:.3em;text-transform:uppercase;color:var(--yellow);margin-bottom:.5rem}
+.hdr h1{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;line-height:1}
+.hdr h1 em{font-style:italic;color:var(--yellow)}
+.hdr p{color:var(--muted);font-size:.7rem;line-height:2;margin-top:.5rem;max-width:620px}
+
+/* split layout */
+.arena{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+@media(max-width:750px){.arena{grid-template-columns:1fr}}
+
+.model-card{background:var(--surface);border:1px solid var(--border);overflow:hidden}
+.mc-header{padding:1rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.8rem}
+.mc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.mc-name{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700}
+.mc-tag{font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-left:auto;border:1px solid var(--border);padding:.2rem .5rem}
+.mc-body{padding:1.2rem}
+
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem}
+.metric{background:var(--bg);border:1px solid var(--border);padding:.8rem;text-align:center}
+.metric-val{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;line-height:1;margin-bottom:.2rem}
+.metric-lbl{font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+.prog-wrap{margin-bottom:.8rem}
+.prog-head{display:flex;justify-content:space-between;font-size:.52rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.06em}
+.prog-track{height:3px;background:var(--border);overflow:hidden}
+.prog-fill{height:100%;width:0%;transition:width .3s}
+.prog-fill.dense{background:var(--dense-col)}
+.prog-fill.lstm{background:var(--lstm-col)}
+
+.mini-log{background:var(--bg);border:1px solid var(--border);padding:.6rem;height:120px;overflow-y:auto;font-size:.58rem;color:var(--muted);line-height:1.9}
+.mini-log::-webkit-scrollbar{width:3px}
+.mini-log::-webkit-scrollbar-thumb{background:var(--border)}
+.mini-log .ok{color:var(--green)}.mini-log .info{color:var(--cyan)}.mini-log .yellow{color:var(--yellow)}
+
+/* controls */
+.controls{background:var(--surface);border:1px solid var(--border);padding:1.4rem;margin-bottom:1.5rem}
+.ctrl-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;margin-bottom:1rem}
+.ctrl-group{display:flex;flex-direction:column;gap:.3rem}
+.ctrl-label{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ctrl-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:.7rem;padding:.45rem .7rem;outline:none;width:100%;transition:border-color .2s}
+.ctrl-input:focus{border-color:var(--yellow)}
+.btn{border:none;padding:.7rem 1.4rem;font-family:'Space Mono',monospace;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s}
+.btn-yellow{background:var(--yellow);color:#000}.btn-yellow:hover{opacity:.85}
+.btn-yellow:disabled{opacity:.3;cursor:not-allowed}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-outline:hover:not(:disabled){border-color:var(--yellow);color:var(--yellow)}
+.btn-outline:disabled{opacity:.3;cursor:not-allowed}
+
+/* predict section */
+.pred-section{background:var(--surface);border:1px solid var(--border);padding:1.4rem;margin-bottom:1.5rem}
+.panel-title{font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.sentence-input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:.8rem;padding:.8rem 1rem;outline:none;resize:none;height:70px;transition:border-color .2s;line-height:1.8}
+.sentence-input:focus{border-color:var(--yellow)}
+.pred-btn-row{display:flex;gap:.6rem;margin-top:.7rem;flex-wrap:wrap}
+
+/* comparison table */
+.cmp-table-wrap{background:var(--surface);border:1px solid var(--border);padding:1.4rem;margin-bottom:1.5rem}
+.cmp-table{width:100%;border-collapse:collapse;font-size:.65rem}
+.cmp-table th{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:400;padding:.5rem .8rem;border-bottom:1px solid var(--border);text-align:left}
+.cmp-table td{padding:.55rem .8rem;border-bottom:1px solid var(--border);color:var(--text2)}
+.cmp-table tr:last-child td{border-bottom:none}
+.cmp-table .winner{font-weight:700}
+.badge{font-size:.48rem;padding:.15rem .45rem;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle;margin-left:.4rem}
+.badge.dense{background:rgba(57,211,83,.12);color:var(--dense-col);border:1px solid rgba(57,211,83,.3)}
+.badge.lstm{background:rgba(227,179,65,.12);color:var(--lstm-col);border:1px solid rgba(227,179,65,.3)}
+
+/* side-by-side prediction */
+.pred-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:600px){.pred-grid{grid-template-columns:1fr}}
+.pred-box{background:var(--bg);border:1px solid var(--border);padding:1rem;text-align:center;transition:border-color .3s}
+.pred-box.pos{border-color:var(--green)}.pred-box.neg{border-color:var(--red)}
+.pred-model-name{font-size:.52rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+.pred-verdict{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;line-height:1;margin-bottom:.3rem}
+.pred-verdict.pos{color:var(--green)}.pred-verdict.neg{color:var(--red)}
+.pred-conf{font-size:.65rem;color:var(--muted)}
+.pred-speed{font-size:.55rem;color:var(--muted);margin-top:.3rem}
+.pred-bar{height:4px;margin-top:.7rem;transition:width .5s,background .3s}
+
+/* chart */
+.chart-section{background:var(--surface);border:1px solid var(--border);padding:1.4rem;margin-bottom:1.5rem}
+.chart-wrap{height:200px;position:relative}
+canvas.chart{width:100%!important;height:200px!important}
+.legend{display:flex;gap:1.2rem;margin-top:.5rem;font-size:.55rem;color:var(--muted)}
+.leg{display:flex;align-items:center;gap:.4rem}
+.leg-line{width:16px;height:2px}
+
+.status{background:var(--surface);border:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.6rem;font-size:.62rem;color:var(--muted);margin-top:1rem}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.sdot.ready{background:var(--green)}.sdot.work{background:var(--yellow);animation:blink 1s infinite}.sdot.err{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+.arch-info{font-size:.58rem;color:var(--muted);line-height:1.9;margin-bottom:1rem;background:var(--bg);border:1px solid var(--border);padding:.8rem}
+.arch-info code{color:var(--cyan);background:rgba(88,166,255,.1);padding:.1rem .3rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="nav">
+  <a href="../index.html">← Home</a>
+  <span class="nav-sep">/</span>
+  <a href="../assignment1/index.html">A1</a>
+  <span class="nav-sep">/</span>
+  <a href="../assignment2/index.html">A2</a>
+  <span class="nav-sep">/</span>
+  <span class="nav-cur">Assignment 3 — Model Comparison</span>
+</nav>
+
+<div class="hdr">
+  <div class="hdr-tag">Assignment 03</div>
+  <h1>Dense vs <em>LSTM</em> Comparison</h1>
+  <p>Both models train on identical data with identical hyperparameters. Compare accuracy, inference speed, and confidence side-by-side.</p>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="ctrl-row">
+    <div class="ctrl-group"><div class="ctrl-label">Epochs</div><input type="number" id="cfgEpochs" class="ctrl-input" value="40" min="5" max="100"/></div>
+    <div class="ctrl-group"><div class="ctrl-label">Batch Size</div><input type="number" id="cfgBatch" class="ctrl-input" value="8" min="2" max="32"/></div>
+    <div class="ctrl-group"><div class="ctrl-label">Learning Rate</div><input type="number" id="cfgLR" class="ctrl-input" value="0.005" step="0.001" min="0.0001"/></div>
+    <div class="ctrl-group"><div class="ctrl-label">Embedding Dims</div><input type="number" id="cfgEmb" class="ctrl-input" value="16" min="8" max="64"/></div>
+  </div>
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <button class="btn btn-yellow" id="trainBtn" onclick="trainBoth()">▶ Train Both Models</button>
+    <button class="btn btn-outline" id="resetBtn" onclick="resetAll()" disabled>↺ Reset</button>
+  </div>
+</div>
+
+<!-- Arena -->
+<div class="arena">
+
+  <!-- Dense model card -->
+  <div class="model-card">
+    <div class="mc-header">
+      <div class="mc-dot" style="background:var(--dense-col)"></div>
+      <div class="mc-name" style="color:var(--dense-col)">Dense Network</div>
+      <div class="mc-tag">Embedding + Dense</div>
+    </div>
+    <div class="mc-body">
+      <div class="arch-info">
+        <code>Embedding(16)</code> → <code>GlobalAvgPool</code> → <code>Dense(32,relu)</code> → <code>Dropout(0.3)</code> → <code>Dense(16,relu)</code> → <code>Dense(1,σ)</code>
+      </div>
+      <div class="metric-grid">
+        <div class="metric"><div class="metric-val" id="d-acc" style="color:var(--dense-col)">—</div><div class="metric-lbl">Val Accuracy</div></div>
+        <div class="metric"><div class="metric-val" id="d-loss">—</div><div class="metric-lbl">Final Loss</div></div>
+        <div class="metric"><div class="metric-val" id="d-speed">—</div><div class="metric-lbl">Inference (ms)</div></div>
+        <div class="metric"><div class="metric-val" id="d-params">—</div><div class="metric-lbl">Parameters</div></div>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-head"><span>Training</span><span id="d-ep">—</span></div>
+        <div class="prog-track"><div class="prog-fill dense" id="d-prog"></div></div>
+      </div>
+      <div class="mini-log" id="d-log">Waiting to train…</div>
+    </div>
+  </div>
+
+  <!-- LSTM model card -->
+  <div class="model-card">
+    <div class="mc-header">
+      <div class="mc-dot" style="background:var(--lstm-col)"></div>
+      <div class="mc-name" style="color:var(--lstm-col)">LSTM Network</div>
+      <div class="mc-tag">Embedding + LSTM</div>
+    </div>
+    <div class="mc-body">
+      <div class="arch-info">
+        <code>Embedding(16)</code> → <code>LSTM(32)</code> → <code>Dropout(0.3)</code> → <code>Dense(16,relu)</code> → <code>Dense(1,σ)</code>
+      </div>
+      <div class="metric-grid">
+        <div class="metric"><div class="metric-val" id="l-acc" style="color:var(--lstm-col)">—</div><div class="metric-lbl">Val Accuracy</div></div>
+        <div class="metric"><div class="metric-val" id="l-loss">—</div><div class="metric-lbl">Final Loss</div></div>
+        <div class="metric"><div class="metric-val" id="l-speed">—</div><div class="metric-lbl">Inference (ms)</div></div>
+        <div class="metric"><div class="metric-val" id="l-params">—</div><div class="metric-lbl">Parameters</div></div>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-head"><span>Training</span><span id="l-ep">—</span></div>
+        <div class="prog-track"><div class="prog-fill lstm" id="l-prog"></div></div>
+      </div>
+      <div class="mini-log" id="l-log">Waiting to train…</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Accuracy chart -->
+<div class="chart-section">
+  <div class="panel-title">Validation Accuracy over Epochs</div>
+  <div class="chart-wrap"><canvas id="accChart" class="chart"></canvas></div>
+  <div class="legend">
+    <div class="leg"><div class="leg-line" style="background:var(--dense-col)"></div>Dense val_acc</div>
+    <div class="leg"><div class="leg-line" style="background:var(--lstm-col);"></div>LSTM val_acc</div>
+    <div class="leg"><div class="leg-line" style="background:var(--dense-col);opacity:.4;border-top:1px dashed var(--dense-col);background:none"></div>Dense loss</div>
+  </div>
+</div>
+
+<!-- Comparison table -->
+<div class="cmp-table-wrap">
+  <div class="panel-title">Head-to-Head Metrics</div>
+  <table class="cmp-table">
+    <thead><tr><th>Metric</th><th>Dense Network</th><th>LSTM Network</th><th>Winner</th></tr></thead>
+    <tbody id="cmpBody">
+      <tr><td colspan="4" style="color:var(--muted);text-align:center;padding:1.5rem">Train both models to see comparison.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Live prediction comparison -->
+<div class="pred-section">
+  <div class="panel-title">Side-by-Side Prediction</div>
+  <textarea class="sentence-input" id="predInput" placeholder="Type a sentence to classify with both models simultaneously…"></textarea>
+  <div class="pred-btn-row">
+    <button class="btn btn-yellow" id="predBtn" onclick="predictBoth()" disabled>▶ Compare Predictions</button>
+  </div>
+  <div style="margin-top:1rem">
+    <div class="pred-grid">
+      <div class="pred-box" id="dPredBox">
+        <div class="pred-model-name">Dense Network</div>
+        <div class="pred-verdict" id="dVerdict">—</div>
+        <div class="pred-conf" id="dConf">—</div>
+        <div class="pred-speed" id="dSpeed">—</div>
+        <div class="pred-bar" id="dBar" style="width:0;background:var(--border)"></div>
+      </div>
+      <div class="pred-box" id="lPredBox">
+        <div class="pred-model-name">LSTM Network</div>
+        <div class="pred-verdict" id="lVerdict">—</div>
+        <div class="pred-conf" id="lConf">—</div>
+        <div class="pred-speed" id="lSpeed">—</div>
+        <div class="pred-bar" id="lBar" style="width:0;background:var(--border)"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status">
+  <div class="sdot" id="sdot"></div>
+  <span id="stxt">Ready — configure and click Train Both Models.</span>
+</div>
+
+</div>
+<script src="compare.js"></script>
+</body>
+</html>

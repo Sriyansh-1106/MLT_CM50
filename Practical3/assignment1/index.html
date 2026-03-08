@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>A1 — Train Sentiment Classifier</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c10;--surface:#0d1117;--surface2:#161b22;--border:#21262d;
+  --green:#39d353;--green2:#26a641;--cyan:#58a6ff;--yellow:#e3b341;
+  --red:#f85149;--muted:#8b949e;--text:#e6edf3;--text2:#c9d1d9;
+}
+body{font-family:'Space Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:999}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(57,211,83,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(57,211,83,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:1.5rem}
+.nav{display:flex;align-items:center;gap:.7rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.nav a{color:var(--muted);text-decoration:none}.nav a:hover{color:var(--green)}
+.nav-sep{color:var(--border)}.nav-cur{color:var(--green)}
+.hdr{margin-bottom:2rem}
+.hdr-tag{font-size:.55rem;letter-spacing:.3em;text-transform:uppercase;color:var(--green);margin-bottom:.5rem}
+.hdr h1{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;line-height:1}
+.hdr h1 em{font-style:italic;color:var(--green)}
+.hdr p{color:var(--muted);font-size:.7rem;line-height:2;margin-top:.5rem;max-width:600px}
+
+.layout{display:grid;grid-template-columns:340px 1fr;gap:1.5rem}
+@media(max-width:800px){.layout{grid-template-columns:1fr}}
+
+.panel{background:var(--surface);border:1px solid var(--border);padding:1.4rem;margin-bottom:1rem}
+.panel-title{font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.panel-title span{float:right;color:var(--green)}
+
+/* Controls */
+.ctrl-row{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem}
+.ctrl-label{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ctrl-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'Space Mono',monospace;font-size:.72rem;padding:.5rem .8rem;outline:none;width:100%;transition:border-color .2s}
+.ctrl-input:focus{border-color:var(--green)}
+select.ctrl-input option{background:var(--surface2)}
+
+.btn{width:100%;border:none;padding:.75rem;font-family:'Space Mono',monospace;font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s;margin-bottom:.5rem}
+.btn-primary{background:var(--green);color:#000}
+.btn-primary:hover{background:#4aff6a}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed}
+.btn-secondary{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-secondary:hover:not(:disabled){border-color:var(--green);color:var(--green)}
+.btn-secondary:disabled{opacity:.3;cursor:not-allowed}
+
+/* dataset samples */
+.dataset-list{max-height:220px;overflow-y:auto;font-size:.6rem;line-height:2}
+.dataset-list::-webkit-scrollbar{width:3px}
+.dataset-list::-webkit-scrollbar-thumb{background:var(--border)}
+.ds-row{display:flex;align-items:flex-start;gap:.6rem;padding:.2rem 0;border-bottom:1px solid var(--border);opacity:.85}
+.ds-label{flex-shrink:0;font-size:.5rem;padding:.1rem .4rem;border-radius:2px;text-transform:uppercase;letter-spacing:.06em}
+.ds-label.pos{background:rgba(57,211,83,.15);color:var(--green);border:1px solid var(--green2)}
+.ds-label.neg{background:rgba(248,81,73,.12);color:var(--red);border:1px solid rgba(248,81,73,.4)}
+.ds-text{color:var(--text2);flex:1;word-break:break-word}
+
+/* progress */
+.prog-wrap{margin-bottom:1rem}
+.prog-head{display:flex;justify-content:space-between;font-size:.55rem;color:var(--muted);margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.06em}
+.prog-track{height:3px;background:var(--border);overflow:hidden}
+.prog-fill{height:100%;background:var(--green);width:0%;transition:width .3s}
+
+/* log */
+.log{background:var(--bg);border:1px solid var(--border);padding:.8rem;height:160px;overflow-y:auto;font-size:.6rem;color:var(--muted);line-height:1.9}
+.log::-webkit-scrollbar{width:3px}
+.log::-webkit-scrollbar-thumb{background:var(--border)}
+.log-line{display:flex;gap:.6rem}
+.log-time{color:var(--border);flex-shrink:0}
+.log-line.ok .log-msg{color:var(--green)}
+.log-line.err .log-msg{color:var(--red)}
+.log-line.info .log-msg{color:var(--cyan)}
+
+/* chart */
+.chart-wrap{position:relative;height:220px;margin-bottom:1rem}
+canvas.chart-canvas{width:100%!important;height:220px!important}
+.chart-legend{display:flex;gap:1.2rem;font-size:.55rem;color:var(--muted);margin-top:.4rem}
+.leg-item{display:flex;align-items:center;gap:.4rem}
+.leg-dot{width:8px;height:2px}
+
+/* epoch table */
+.etable{width:100%;border-collapse:collapse;font-size:.62rem}
+.etable th{text-align:left;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.4rem .6rem;border-bottom:1px solid var(--border);font-weight:400}
+.etable td{padding:.4rem .6rem;border-bottom:1px solid var(--border);color:var(--text2)}
+.etable tr:last-child td{border-bottom:none}
+.etable td.val-acc{color:var(--green);font-weight:700}
+.etable-wrap{max-height:200px;overflow-y:auto}
+.etable-wrap::-webkit-scrollbar{width:3px}
+.etable-wrap::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* status */
+.status{background:var(--surface);border:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.6rem;font-size:.62rem;color:var(--muted);margin-top:1rem}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.sdot.ready{background:var(--green)}
+.sdot.work{background:var(--yellow);animation:blink 1s infinite}
+.sdot.err{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* final stats */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1rem}
+.stat-box{background:var(--bg);border:1px solid var(--border);padding:1rem;text-align:center}
+.stat-val{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;color:var(--green);line-height:1}
+.stat-lbl{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:.3rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="nav">
+  <a href="../index.html">← Home</a>
+  <span class="nav-sep">/</span>
+  <span class="nav-cur">Assignment 1 — Train Classifier</span>
+</nav>
+
+<div class="hdr">
+  <div class="hdr-tag">Assignment 01</div>
+  <h1>Train <em>Sentiment</em> Classifier</h1>
+  <p>Build a sentiment classifier using TensorFlow.js. The model learns from a curated dataset of positive and negative sentences using an Embedding layer followed by Dense layers.</p>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT COLUMN -->
+  <div>
+    <div class="panel">
+      <div class="panel-title">Training Configuration</div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">Epochs</div>
+        <input type="number" id="cfgEpochs" class="ctrl-input" value="40" min="5" max="200"/>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">Batch Size</div>
+        <input type="number" id="cfgBatch" class="ctrl-input" value="8" min="2" max="32"/>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">Learning Rate</div>
+        <input type="number" id="cfgLR" class="ctrl-input" value="0.005" step="0.001" min="0.0001"/>
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">Embedding Dims</div>
+        <input type="number" id="cfgEmb" class="ctrl-input" value="16" min="8" max="64"/>
+      </div>
+      <button class="btn btn-primary" id="trainBtn" onclick="startTraining()">▶ Start Training</button>
+      <button class="btn btn-secondary" id="resetBtn" onclick="resetAll()" disabled>↺ Reset</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Dataset <span id="dsCount"></span></div>
+      <div class="dataset-list" id="datasetList"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div>
+    <div class="panel">
+      <div class="panel-title">Training Progress <span id="epochLbl">—</span></div>
+      <div class="prog-wrap">
+        <div class="prog-head"><span>Epoch Progress</span><span id="progPct">0%</span></div>
+        <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chartCanvas" class="chart-canvas"></canvas>
+      </div>
+      <div class="chart-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Train Accuracy</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--cyan)"></div>Val Accuracy</div>
+        <div class="leg-item"><div class="leg-dot" style="background:rgba(248,81,73,.7)"></div>Loss</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Epoch Log</div>
+      <div class="etable-wrap">
+        <table class="etable">
+          <thead><tr><th>Epoch</th><th>Loss</th><th>Acc</th><th>Val Acc</th></tr></thead>
+          <tbody id="epochBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Final Results</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-val" id="statAcc">—</div><div class="stat-lbl">Val Accuracy</div></div>
+        <div class="stat-box"><div class="stat-val" id="statLoss">—</div><div class="stat-lbl">Final Loss</div></div>
+        <div class="stat-box"><div class="stat-val" id="statEpoch">—</div><div class="stat-lbl">Epochs Trained</div></div>
+        <div class="stat-box"><div class="stat-val" id="statParams">—</div><div class="stat-lbl">Parameters</div></div>
+      </div>
+      <div class="log" id="logBox"><div class="log-line info"><span class="log-time">—</span><span class="log-msg">Configure settings and click Start Training.</span></div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="status">
+  <div class="sdot" id="sdot"></div>
+  <span id="stxt">Ready — TensorFlow.js loaded.</span>
+</div>
+
+</div>
+<script src="train.js"></script>
+</body>
+</html>

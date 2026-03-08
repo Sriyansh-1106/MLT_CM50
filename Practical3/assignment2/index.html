@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>A2 — Custom Sentence Testing</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c10;--surface:#0d1117;--surface2:#161b22;--border:#21262d;
+  --green:#39d353;--green2:#26a641;--cyan:#58a6ff;--yellow:#e3b341;
+  --red:#f85149;--muted:#8b949e;--text:#e6edf3;--text2:#c9d1d9;
+}
+body{font-family:'Space Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:999}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(57,211,83,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(57,211,83,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:1.5rem}
+.nav{display:flex;align-items:center;gap:.7rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.nav a{color:var(--muted);text-decoration:none}.nav a:hover{color:var(--green)}
+.nav-sep{color:var(--border)}.nav-cur{color:var(--cyan)}
+.hdr{margin-bottom:2rem}
+.hdr-tag{font-size:.55rem;letter-spacing:.3em;text-transform:uppercase;color:var(--cyan);margin-bottom:.5rem}
+.hdr h1{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;line-height:1}
+.hdr h1 em{font-style:italic;color:var(--cyan)}
+.hdr p{color:var(--muted);font-size:.7rem;line-height:2;margin-top:.5rem;max-width:600px}
+
+/* model loader */
+.loader-box{background:var(--surface);border:1px solid var(--border);padding:1.4rem;margin-bottom:1.5rem}
+.loader-title{font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.loader-info{font-size:.65rem;color:var(--text2);line-height:2;margin-bottom:1rem}
+.loader-info strong{color:var(--cyan)}
+.btn{border:none;padding:.7rem 1.4rem;font-family:'Space Mono',monospace;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s}
+.btn-cyan{background:var(--cyan);color:#000}.btn-cyan:hover{opacity:.85}
+.btn-cyan:disabled{opacity:.3;cursor:not-allowed}
+.btn-green{background:var(--green);color:#000}.btn-green:hover{opacity:.85}
+.btn-green:disabled{opacity:.3;cursor:not-allowed}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-outline:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan)}
+
+/* input area */
+.input-panel{background:var(--surface);border:1px solid var(--border);padding:1.4rem;margin-bottom:1.5rem}
+.input-label{font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;display:block}
+.sentence-input{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  color:var(--text);font-family:'Space Mono',monospace;font-size:.82rem;
+  padding:.9rem 1rem;outline:none;resize:none;height:90px;
+  transition:border-color .2s;line-height:1.8;
+}
+.sentence-input:focus{border-color:var(--cyan)}
+.input-row{display:flex;gap:.6rem;margin-top:.7rem;flex-wrap:wrap}
+
+/* result */
+.result-panel{
+  background:var(--surface);border:1px solid var(--border);
+  padding:2rem;text-align:center;margin-bottom:1.5rem;
+  min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:border-color .4s;
+}
+.result-panel.pos{border-color:var(--green)}
+.result-panel.neg{border-color:var(--red)}
+
+.result-verdict{
+  font-family:'Syne',sans-serif;font-size:3rem;font-weight:800;
+  line-height:1;margin-bottom:.5rem;
+  transition:color .4s;
+}
+.result-verdict.pos{color:var(--green)}
+.result-verdict.neg{color:var(--red)}
+
+.result-score{font-size:1.1rem;color:var(--muted);margin-bottom:1.5rem}
+.result-score span{color:var(--text);font-weight:700}
+
+/* confidence bar */
+.conf-bar-wrap{width:100%;max-width:400px;margin-bottom:.8rem}
+.conf-labels{display:flex;justify-content:space-between;font-size:.55rem;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.08em}
+.conf-track{height:8px;background:var(--border);border-radius:0;overflow:hidden;position:relative}
+.conf-fill{height:100%;transition:width .6s cubic-bezier(.4,0,.2,1),background .4s}
+.conf-pointer{position:absolute;top:0;height:100%;width:2px;background:var(--text);transition:left .6s cubic-bezier(.4,0,.2,1)}
+
+/* tokens */
+.token-wrap{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:1rem;justify-content:center;max-width:600px}
+.token{
+  font-size:.55rem;padding:.2rem .5rem;border:1px solid var(--border);
+  background:var(--surface2);color:var(--muted);
+  transition:all .3s;
+}
+.token.known{border-color:var(--green2);color:var(--green)}
+.token.unk{border-color:rgba(248,81,73,.3);color:var(--red)}
+
+/* history */
+.history-panel{background:var(--surface);border:1px solid var(--border);padding:1.4rem}
+.panel-title{font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.history-list{display:flex;flex-direction:column;gap:.5rem;max-height:280px;overflow-y:auto}
+.history-list::-webkit-scrollbar{width:3px}
+.history-list::-webkit-scrollbar-thumb{background:var(--border)}
+.hist-row{display:flex;align-items:center;gap:.8rem;padding:.6rem .8rem;background:var(--bg);border:1px solid var(--border);font-size:.65rem}
+.hist-verdict{flex-shrink:0;font-size:.5rem;padding:.15rem .5rem;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.hist-verdict.pos{background:rgba(57,211,83,.12);color:var(--green);border:1px solid var(--green2)}
+.hist-verdict.neg{background:rgba(248,81,73,.1);color:var(--red);border:1px solid rgba(248,81,73,.35)}
+.hist-text{flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-conf{flex-shrink:0;color:var(--muted);font-size:.58rem}
+.hist-empty{font-size:.65rem;color:var(--muted);text-align:center;padding:1.5rem}
+
+.status{background:var(--surface);border:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;gap:.6rem;font-size:.62rem;color:var(--muted);margin-top:1rem}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.sdot.ready{background:var(--green)}.sdot.work{background:var(--yellow);animation:blink 1s infinite}.sdot.err{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* quick samples */
+.samples{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.5rem}
+.sample-btn{
+  font-family:'Space Mono',monospace;font-size:.58rem;
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--muted);padding:.35rem .7rem;cursor:pointer;
+  transition:all .2s;text-align:left;
+}
+.sample-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.sample-btn.pos-s{border-color:rgba(57,211,83,.25)}
+.sample-btn.neg-s{border-color:rgba(248,81,73,.25)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="nav">
+  <a href="../index.html">← Home</a>
+  <span class="nav-sep">/</span>
+  <a href="../assignment1/index.html">Assignment 1</a>
+  <span class="nav-sep">/</span>
+  <span class="nav-cur">Assignment 2 — Test Classifier</span>
+</nav>
+
+<div class="hdr">
+  <div class="hdr-tag">Assignment 02</div>
+  <h1>Custom <em>Sentence</em> Testing</h1>
+  <p>Train the model in Assignment 1 first, then return here to test any sentence. The classifier tokenises your input and predicts sentiment with a confidence score.</p>
+</div>
+
+<div class="loader-box">
+  <div class="loader-title">Model Status</div>
+  <div class="loader-info" id="modelInfo">
+    No model loaded. <strong>Option A:</strong> Open Assignment 1 in the same browser tab/window, train the model, then return here — it will be available automatically via shared window state. <strong>Option B:</strong> Click "Train Fresh Model" to train a new model directly on this page.
+  </div>
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <button class="btn btn-cyan" id="checkBtn" onclick="checkModel()">⟳ Check for Model</button>
+    <button class="btn btn-green" id="trainFreshBtn" onclick="trainFresh()">⚡ Train Fresh Model</button>
+  </div>
+</div>
+
+<div style="margin-bottom:1rem">
+  <div style="font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Quick Test Sentences</div>
+  <div class="samples">
+    <button class="sample-btn pos-s" onclick="setSample(this)">This is absolutely amazing!</button>
+    <button class="sample-btn pos-s" onclick="setSample(this)">I love this wonderful experience</button>
+    <button class="sample-btn pos-s" onclick="setSample(this)">Great product, very happy</button>
+    <button class="sample-btn neg-s" onclick="setSample(this)">This is terrible and awful</button>
+    <button class="sample-btn neg-s" onclick="setSample(this)">I hate this horrible thing</button>
+    <button class="sample-btn neg-s" onclick="setSample(this)">Worst experience ever, disgusting</button>
+    <button class="sample-btn" onclick="setSample(this)">The weather is okay today</button>
+    <button class="sample-btn" onclick="setSample(this)">I went to the store</button>
+  </div>
+</div>
+
+<div class="input-panel">
+  <label class="input-label">Enter a sentence to classify</label>
+  <textarea class="sentence-input" id="sentInput" placeholder="Type any sentence here and click Classify…"></textarea>
+  <div class="input-row">
+    <button class="btn btn-green" id="classifyBtn" onclick="classify()" disabled>▶ Classify Sentiment</button>
+    <button class="btn btn-outline" onclick="clearInput()">✕ Clear</button>
+  </div>
+</div>
+
+<div class="result-panel" id="resultPanel">
+  <div style="color:var(--muted);font-size:.7rem">Load or train a model, then classify a sentence.</div>
+</div>
+
+<div class="history-panel">
+  <div class="panel-title">
+    <span>Classification History</span>
+    <button class="btn btn-outline" style="padding:.25rem .6rem;font-size:.52rem" onclick="clearHistory()">Clear</button>
+  </div>
+  <div class="history-list" id="historyList"><div class="hist-empty">No classifications yet.</div></div>
+</div>
+
+<div class="status">
+  <div class="sdot" id="sdot"></div>
+  <span id="stxt">Loading…</span>
+</div>
+
+</div>
+<script src="predict.js"></script>
+</body>
+</html>

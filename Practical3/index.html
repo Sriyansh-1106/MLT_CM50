@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Practical 6 — Text Sentiment Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c10;
+  --surface:#0d1117;
+  --surface2:#161b22;
+  --border:#21262d;
+  --green:#39d353;
+  --green2:#26a641;
+  --cyan:#58a6ff;
+  --yellow:#e3b341;
+  --red:#f85149;
+  --muted:#8b949e;
+  --text:#e6edf3;
+  --text2:#c9d1d9;
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Space Mono',monospace;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* scanline overlay */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);
+  pointer-events:none;z-index:999;
+}
+
+/* grid background */
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(57,211,83,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(57,211,83,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;z-index:0;
+}
+
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem}
+
+/* ── HEADER ── */
+.hero{padding:4rem 0 3rem;text-align:center;position:relative}
+.hero-tag{
+  font-size:.65rem;letter-spacing:.35em;text-transform:uppercase;
+  color:var(--green);border:1px solid var(--green2);
+  display:inline-block;padding:.3rem 1rem;margin-bottom:1.5rem;
+  animation:fadeIn .6s ease;
+}
+.hero h1{
+  font-family:'Syne',sans-serif;font-size:clamp(2.5rem,6vw,4.5rem);
+  font-weight:800;line-height:1.05;letter-spacing:-.02em;
+  color:var(--text);animation:fadeIn .8s ease .1s both;
+}
+.hero h1 span{color:var(--green)}
+.hero-sub{
+  color:var(--muted);font-size:.78rem;margin-top:1rem;line-height:1.9;
+  max-width:500px;margin-inline:auto;
+  animation:fadeIn .8s ease .2s both;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:.5rem;
+  background:var(--surface2);border:1px solid var(--border);
+  padding:.4rem 1rem;font-size:.6rem;color:var(--cyan);
+  margin-top:1.5rem;animation:fadeIn .8s ease .3s both;
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+
+/* ── CARDS ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem;margin-top:3rem}
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  position:relative;overflow:hidden;
+  text-decoration:none;color:inherit;
+  display:block;
+  transition:border-color .25s, transform .25s;
+  animation:fadeUp .6s ease both;
+}
+.card:nth-child(1){animation-delay:.1s}
+.card:nth-child(2){animation-delay:.2s}
+.card:nth-child(3){animation-delay:.3s}
+.card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(57,211,83,.06) 0%,transparent 60%);
+  opacity:0;transition:opacity .3s;
+}
+.card:hover{border-color:var(--green2);transform:translateY(-4px)}
+.card:hover::before{opacity:1}
+
+.card-top{
+  height:4px;
+  background:linear-gradient(90deg,var(--green),var(--cyan));
+}
+.card:nth-child(2) .card-top{background:linear-gradient(90deg,var(--cyan),var(--yellow))}
+.card:nth-child(3) .card-top{background:linear-gradient(90deg,var(--yellow),var(--red))}
+
+.card-body{padding:1.8rem}
+.card-num{
+  font-size:.55rem;letter-spacing:.3em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.8rem;
+}
+.card-title{
+  font-family:'Syne',sans-serif;font-size:1.35rem;font-weight:700;
+  color:var(--text);margin-bottom:.7rem;line-height:1.2;
+}
+.card-desc{font-size:.68rem;color:var(--muted);line-height:2;margin-bottom:1.4rem}
+
+.card-tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.4rem}
+.tag{
+  font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;
+  border:1px solid var(--border);color:var(--muted);
+  padding:.2rem .6rem;background:var(--surface2);
+}
+.tag.g{border-color:var(--green2);color:var(--green)}
+.tag.c{border-color:rgba(88,166,255,.4);color:var(--cyan)}
+.tag.y{border-color:rgba(227,179,65,.4);color:var(--yellow)}
+.tag.r{border-color:rgba(248,81,73,.4);color:var(--red)}
+
+.card-link{
+  font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--green);display:flex;align-items:center;gap:.5rem;
+  transition:gap .2s;
+}
+.card:hover .card-link{gap:.9rem}
+
+/* ── TECH ROW ── */
+.tech{
+  margin-top:3rem;padding:1.5rem;
+  background:var(--surface);border:1px solid var(--border);
+  display:flex;flex-wrap:wrap;gap:2rem;align-items:center;
+  animation:fadeIn 1s ease .5s both;
+}
+.tech-label{font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);flex-basis:100%}
+.tech-item{display:flex;align-items:center;gap:.5rem;font-size:.65rem;color:var(--text2)}
+.tech-item::before{content:'▸';color:var(--green);font-size:.6rem}
+
+/* ── FOOTER ── */
+.footer{
+  margin-top:4rem;padding-top:2rem;border-top:1px solid var(--border);
+  text-align:center;font-size:.6rem;color:var(--muted);
+  animation:fadeIn 1s ease .6s both;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+@media(max-width:600px){.wrap{padding:1rem}.hero{padding:2rem 0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="hero-tag">Practical 06</div>
+    <h1>Text <span>Sentiment</span><br>Analysis</h1>
+    <p class="hero-sub">Three progressive experiments in natural language processing using TensorFlow.js — all running live in your browser via WebGL.</p>
+    <div class="hero-badge"><span class="dot"></span> TensorFlow.js · WebGL Backend · Live in Browser</div>
+  </div>
+
+  <div class="cards">
+
+    <a href="assignment1/index.html" class="card">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Assignment 01</div>
+        <div class="card-title">Train Sentiment Classifier</div>
+        <div class="card-desc">Build and train a lightweight sentiment model from scratch. Tokenise sentences, create embeddings, and watch the dense network learn positive vs. negative patterns in real time.</div>
+        <div class="card-tags">
+          <span class="tag g">Embedding Layer</span>
+          <span class="tag g">Dense Network</span>
+          <span class="tag">Training Loop</span>
+          <span class="tag">Loss / Accuracy</span>
+        </div>
+        <div class="card-link">Open Assignment →</div>
+      </div>
+    </a>
+
+    <a href="assignment2/index.html" class="card">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Assignment 02</div>
+        <div class="card-title">Custom Sentence Testing</div>
+        <div class="card-desc">Type any sentence and instantly classify its sentiment. The trained model predicts positive or negative with a confidence score and animated visualisation.</div>
+        <div class="card-tags">
+          <span class="tag c">Live Inference</span>
+          <span class="tag c">Tokenisation</span>
+          <span class="tag">Confidence Score</span>
+          <span class="tag">Custom Input</span>
+        </div>
+        <div class="card-link">Open Assignment →</div>
+      </div>
+    </a>
+
+    <a href="assignment3/index.html" class="card">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Assignment 03</div>
+        <div class="card-title">Model Comparison</div>
+        <div class="card-desc">Head-to-head: Dense Network vs LSTM. Both models train on the same dataset and compete on accuracy, inference speed, and confidence. Side-by-side metrics reveal the tradeoffs.</div>
+        <div class="card-tags">
+          <span class="tag y">LSTM</span>
+          <span class="tag y">Dense</span>
+          <span class="tag r">Benchmark</span>
+          <span class="tag">Inference Speed</span>
+        </div>
+        <div class="card-link">Open Assignment →</div>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="tech">
+    <div class="tech-label">Technology Stack</div>
+    <div class="tech-item">TensorFlow.js 4.x</div>
+    <div class="tech-item">WebGL 2.0 Acceleration</div>
+    <div class="tech-item">Embedding + Dense Layers</div>
+    <div class="tech-item">LSTM Recurrent Network</div>
+    <div class="tech-item">Custom Tokeniser</div>
+    <div class="tech-item">Real-time Training Visualisation</div>
+  </div>
+
+  <div class="footer">
+    Practical 6 · Text Sentiment Analysis · TensorFlow.js · Run with VS Code Live Server
+  </div>
+
+</div>
+</body>
+</html>
