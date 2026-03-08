@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Assignment 1 – Image Classification</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #050810; --surface: #0c1120; --surface2: #111827;
+      --border: #1a2540; --accent: #00e5ff; --text: #e2e8f0; --muted: #64748b;
+    }
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none; z-index: 0;
+    }
+    .container { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 2rem; }
+
+    .nav {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .nav a {
+      color: var(--muted); text-decoration: none; font-size: 0.72rem;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav a:hover { color: var(--accent); }
+    .nav-sep { color: var(--border); }
+    .nav-current { color: var(--accent); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; }
+
+    .header { margin-bottom: 2.5rem; }
+    .header-label {
+      font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 0.5rem;
+    }
+    .header h1 {
+      font-family: 'Syne', sans-serif; font-size: 2rem;
+      font-weight: 800; line-height: 1.1; margin-bottom: 0.5rem;
+    }
+    .header p { color: var(--muted); font-size: 0.8rem; line-height: 1.6; }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+
+    /* PANEL */
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.5rem; position: relative; overflow: hidden;
+    }
+    .panel::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 1px; background: linear-gradient(90deg, transparent, rgba(0,229,255,0.3), transparent);
+    }
+    .panel-title {
+      font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 1rem;
+    }
+
+    /* IMAGE SELECTOR */
+    .img-buttons {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1rem;
+    }
+    .img-btn {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 0.7rem 0.5rem; cursor: pointer; color: var(--text);
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      transition: all 0.2s; text-align: center;
+    }
+    .img-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .img-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.06); }
+    .img-btn-icon { font-size: 1.3rem; display: block; margin-bottom: 0.3rem; }
+
+    .divider-btn {
+      grid-column: span 2; display: flex; align-items: center; gap: 0.6rem;
+      color: var(--muted); font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .divider-btn::before, .divider-btn::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .upload-zone {
+      border: 1px dashed var(--border); border-radius: 10px;
+      padding: 1.2rem; text-align: center; cursor: pointer;
+      transition: all 0.2s; margin-bottom: 1rem;
+    }
+    .upload-zone:hover { border-color: var(--accent); background: rgba(0,229,255,0.03); }
+    .upload-zone input { display: none; }
+    .upload-zone p { color: var(--muted); font-size: 0.72rem; }
+    .upload-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+
+    /* IMAGE PREVIEW */
+    .img-preview-wrap {
+      aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+      background: var(--surface2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .img-preview-wrap img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .preview-placeholder {
+      color: var(--muted); font-size: 0.72rem; text-align: center;
+    }
+    .preview-placeholder span { display: block; font-size: 2rem; margin-bottom: 0.4rem; }
+
+    /* CLASSIFY BTN */
+    .classify-btn {
+      width: 100%; margin-top: 1rem;
+      background: var(--accent); color: #050810;
+      border: none; border-radius: 10px; padding: 0.85rem;
+      font-family: 'DM Mono', monospace; font-weight: 500;
+      font-size: 0.8rem; letter-spacing: 0.05em;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .classify-btn:hover { background: #33eaff; transform: translateY(-1px); }
+    .classify-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* RESULTS PANEL */
+    .results-wrap {
+      min-height: 200px; display: flex; flex-direction: column;
+    }
+
+    /* SPINNER */
+    .spinner-wrap {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1rem;
+    }
+    .spinner {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+    }
+    .spinner-text { color: var(--muted); font-size: 0.72rem; letter-spacing: 0.05em; }
+
+    /* PREDICTION */
+    .prediction-item { margin-bottom: 1.2rem; }
+    .prediction-header {
+      display: flex; justify-content: space-between;
+      align-items: baseline; margin-bottom: 0.4rem;
+    }
+    .prediction-label {
+      font-size: 0.78rem; color: var(--text);
+      text-transform: capitalize; max-width: 70%;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .prediction-pct {
+      font-size: 0.72rem; color: var(--accent); font-weight: 500;
+    }
+    .bar-track {
+      height: 6px; background: var(--surface2); border-radius: 100px; overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%; border-radius: 100px;
+      background: linear-gradient(90deg, var(--accent), #7c3aed);
+      transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .bar-fill.rank2 { background: linear-gradient(90deg, #7c3aed, #ff6b35); }
+    .bar-fill.rank3 { background: linear-gradient(90deg, #ff6b35, #f59e0b); }
+
+    .rank-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.3);
+      font-size: 0.55rem; color: var(--accent); margin-right: 0.4rem;
+    }
+
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--muted); text-align: center; gap: 0.5rem;
+    }
+    .empty-state span { font-size: 2rem; }
+    .empty-state p { font-size: 0.72rem; line-height: 1.6; }
+
+    /* STATUS */
+    .status-bar {
+      margin-top: 1.5rem; padding: 0.8rem 1rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; display: flex; align-items: center; gap: 0.6rem;
+      font-size: 0.7rem; color: var(--muted);
+    }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+    }
+    .status-dot.ready { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+    .status-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    .status-dot.error { background: #ef4444; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    @keyframes slideIn {
+      from { opacity:0; transform: translateX(-8px); }
+      to { opacity:1; transform: translateX(0); }
+    }
+
+    @media (max-width: 640px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <nav class="nav">
+    <a href="../index.html">← Home</a>
+    <span class="nav-sep">/</span>
+    <span class="nav-current">Assignment 1</span>
+  </nav>
+
+  <div class="header">
+    <div class="header-label">Assignment 01</div>
+    <h1>MobileNet Image Classification</h1>
+    <p>Select a sample image or upload your own. MobileNet returns top-3 predictions with confidence scores — running entirely in your browser via WebGL.</p>
+  </div>
+
+  <div class="layout">
+
+    <!-- LEFT: Image Selection -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Select Image</div>
+
+        <div class="img-buttons">
+          <button class="img-btn" onclick="loadSampleImage('dog.jpg', this)">
+            <span class="img-btn-icon">🐕</span>Dog
+          </button>
+          <button class="img-btn" onclick="loadSampleImage('car.jpg', this)">
+            <span class="img-btn-icon">🚗</span>Car
+          </button>
+          <button class="img-btn" onclick="loadSampleImage('chair.jpg', this)">
+            <span class="img-btn-icon">🪑</span>Chair
+          </button>
+          <button class="img-btn" onclick="loadSampleImage('laptop.jpg', this)">
+            <span class="img-btn-icon">💻</span>Laptop
+          </button>
+          <button class="img-btn" style="grid-column:span 2" onclick="loadSampleImage('pineapple.jpg', this)">
+            <span class="img-btn-icon">🍍</span>Pineapple
+          </button>
+
+          <div class="divider-btn">or upload</div>
+        </div>
+
+        <label class="upload-zone" id="uploadZone">
+          <input type="file" accept="image/*" onchange="handleUpload(event)" id="fileInput"/>
+          <div class="upload-icon">📂</div>
+          <p>Click to upload your own image</p>
+        </label>
+
+        <div class="img-preview-wrap">
+          <img id="previewImg" src="" alt="Preview" style="display:none" crossorigin="anonymous"/>
+          <div class="preview-placeholder" id="previewPlaceholder">
+            <span>🖼️</span>
+            No image selected
+          </div>
+        </div>
+
+        <button class="classify-btn" id="classifyBtn" onclick="classify()" disabled>
+          Classify Image →
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT: Results -->
+    <div>
+      <div class="panel" style="height:100%">
+        <div class="panel-title">Predictions</div>
+        <div class="results-wrap" id="resultsWrap">
+          <div class="empty-state">
+            <span>🧠</span>
+            <p>Select an image and click<br/>"Classify Image" to see results</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot loading" id="statusDot"></div>
+    <span id="statusText">Loading MobileNet model…</span>
+  </div>
+
+</div>
+
+<script src="train.js"></script>
+</body>
+</html>
