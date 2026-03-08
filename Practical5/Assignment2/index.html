@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>A2 — Canvas Digit Recognition</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f0e8;--bg2:#ede8de;--ink:#1a1208;--border:#c8b89a;--border2:#a89070;
+  --ochre:#c97d20;--rust:#c44b1a;--sage:#4a7c59;--cream:#faf7f2;--muted:#8a7560;
+  --amber:#e8941a;--red:#c44b1a;--green:#4a7c59;
+}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--ink);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(-45deg,transparent,transparent 28px,rgba(180,150,100,.05) 28px,rgba(180,150,100,.05) 29px);pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem}
+
+.nav{display:flex;align-items:center;gap:.8rem;margin-bottom:2rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.nav a{color:var(--muted);text-decoration:none;transition:color .2s}
+.nav a:hover{color:var(--rust)}
+.nav-sep{color:var(--border2)}
+.nav-cur{color:var(--rust)}
+
+.hdr{margin-bottom:1.8rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)}
+.hdr-tag{font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--rust);margin-bottom:.4rem}
+.hdr h1{font-family:'DM Serif Display',serif;font-size:clamp(1.8rem,4vw,2.6rem);line-height:1}
+.hdr h1 em{font-style:italic;color:var(--rust)}
+.hdr p{color:var(--muted);font-size:.67rem;line-height:1.8;margin-top:.4rem;max-width:680px}
+
+/* ── MODE TABS ── */
+.mode-tabs{display:flex;gap:0;margin-bottom:1.5rem;border:2px solid var(--ink)}
+.mode-tab{
+  flex:1;padding:.75rem 1rem;text-align:center;cursor:pointer;
+  font-family:'IBM Plex Mono',monospace;font-size:.65rem;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  background:var(--bg2);color:var(--muted);
+  border-right:2px solid var(--ink);transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:.5rem;
+}
+.mode-tab:last-child{border-right:none}
+.mode-tab.active{background:var(--ink);color:var(--cream)}
+.mode-tab .tab-badge{
+  font-size:.48rem;background:var(--sage);color:#fff;
+  padding:.1rem .35rem;border-radius:1px;
+}
+.mode-tab.active .tab-badge{background:var(--ochre)}
+
+/* ── PANEL ── */
+.panel{background:var(--cream);border:1px solid var(--border);padding:1.3rem;position:relative}
+.panel.a-rust::before,.panel.a-ochre::before,.panel.a-sage::before,.panel.a-amber::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.panel.a-rust::before{background:var(--rust)}
+.panel.a-ochre::before{background:var(--ochre)}
+.panel.a-sage::before{background:var(--sage)}
+.panel.a-amber::before{background:var(--amber)}
+.panel-title{font-size:.52rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.9rem}
+
+/* ── SECTION WRAPPER ── */
+.section{display:none}
+.section.active{display:block}
+
+/* ── SHARED: DRAW + PREDICT LAYOUT ── */
+.dp-layout{display:grid;grid-template-columns:300px 1fr;gap:1.2rem;align-items:start}
+
+/* Canvas */
+.canvas-wrap{position:relative}
+#drawCanvas,#drawCanvas2{
+  display:block;width:100%;aspect-ratio:1;
+  background:#1a1208;border:2px solid var(--ink);
+  cursor:crosshair;touch-action:none;transition:border-color .2s;
+}
+#drawCanvas:hover,#drawCanvas2:hover{border-color:var(--rust)}
+.brush-row{display:flex;align-items:center;gap:.6rem;margin:.6rem 0}
+.brush-lbl{font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+input[type=range]{flex:1;accent-color:var(--rust)}
+.bval{font-size:.56rem;color:var(--muted);min-width:22px}
+.preview-row{display:flex;align-items:center;gap:.6rem;margin-top:.5rem}
+.prev-lbl{font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.btn-row{display:flex;gap:.5rem;margin-top:.5rem}
+.btn{border:1px solid;padding:.55rem .7rem;font-family:'IBM Plex Mono',monospace;font-size:.6rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:all .2s;flex:1}
+.btn-clr{background:var(--bg);color:var(--muted);border-color:var(--border)}
+.btn-clr:hover{border-color:var(--ink);color:var(--ink)}
+.btn-go{background:var(--rust);color:var(--cream);border-color:var(--rust);font-weight:700}
+.btn-go:hover{background:#a33a12}
+.btn-go:disabled{opacity:.38;cursor:not-allowed}
+.btn-add{background:var(--ochre);color:var(--cream);border-color:var(--ochre);font-weight:700}
+.btn-add:hover{background:#a8640f}
+
+/* PREDICTION OUTPUT */
+.pred-right{display:flex;flex-direction:column;gap:1rem}
+.big-digit{font-family:'DM Serif Display',serif;font-size:6rem;color:var(--ochre);text-align:center;line-height:1;animation:pop .3s ease}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.big-conf{text-align:center;font-size:.6rem;color:var(--muted);margin:.2rem 0 .8rem}
+.active-model-badge{text-align:center;font-size:.52rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sage);margin-bottom:.8rem}
+
+.bars{display:flex;flex-direction:column;gap:.3rem}
+.bar-row{display:flex;align-items:center;gap:.5rem}
+.bar-d{font-family:'DM Serif Display',serif;font-size:.9rem;color:var(--muted);width:12px;text-align:center;flex-shrink:0}
+.bar-track{flex:1;height:6px;background:var(--bg2);border:1px solid var(--border);overflow:hidden}
+.bar-fill{height:100%;background:var(--ochre);transition:width .45s ease}
+.bar-fill.top{background:var(--rust)}
+.bar-pct{font-size:.5rem;color:var(--muted);width:32px;text-align:right}
+.pred-ph{text-align:center;color:var(--muted);font-size:.62rem;padding:2rem 1rem;line-height:1.7}
+
+/* MODEL STATUS BOX */
+.model-status-box{background:var(--bg);border:1px solid var(--border);padding:.8rem 1rem;font-size:.6rem;color:var(--muted);line-height:1.7}
+.model-status-box .ok{color:var(--green);font-weight:600}
+.model-status-box .warn{color:var(--amber)}
+
+/* PREBUILT LOAD BAR */
+.load-wrap{margin:.5rem 0}
+.load-track{height:4px;background:var(--border);overflow:hidden}
+.load-fill{height:100%;background:var(--sage);width:0%;transition:width .35s}
+.load-txt{font-size:.55rem;color:var(--muted);margin-top:.3rem}
+.load-btn{width:100%;background:var(--sage);color:var(--cream);border:none;padding:.65rem;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:all .2s;margin-top:.6rem}
+.load-btn:hover{background:#3a6247}
+.load-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── MANUAL TRAINING SECTION ── */
+.manual-layout{display:grid;grid-template-columns:260px 1fr 260px;gap:1rem;align-items:start}
+
+.digit-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:.3rem;margin-bottom:.7rem}
+.dtab{background:var(--bg);border:1px solid var(--border);padding:.45rem .2rem;text-align:center;cursor:pointer;font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--muted);transition:all .2s;position:relative}
+.dtab:hover{border-color:var(--ink);color:var(--ink)}
+.dtab.active{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+.dtab.has-data{border-color:var(--sage)}
+.dcnt{position:absolute;top:2px;right:3px;font-size:.38rem;font-family:'IBM Plex Mono',monospace;color:var(--sage);font-weight:600;line-height:1}
+.dtab.active .dcnt{color:#a0e8b0}
+
+.dataset-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.35rem;margin-bottom:.6rem}
+.dscell{background:var(--bg);border:1px solid var(--border);padding:.5rem .3rem;text-align:center}
+.dscell-num{font-family:'DM Serif Display',serif;font-size:1.4rem;line-height:1;color:var(--ochre)}
+.dscell-cnt{font-size:.56rem;font-weight:600;color:var(--ink);margin-top:.1rem}
+.dscell.enough .dscell-cnt{color:var(--green)}
+.dscell.none .dscell-num{color:var(--muted)}
+
+.thumb-area{background:var(--bg);border:1px solid var(--border);padding:.5rem;min-height:80px;display:flex;flex-wrap:wrap;gap:.3rem;align-content:flex-start;margin-bottom:.6rem}
+.tw{position:relative;display:inline-flex}
+.timg{width:40px;height:40px;image-rendering:pixelated;border:1px solid var(--border);cursor:default}
+.timg:hover{border-color:var(--red)}
+.tdel{position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:var(--red);color:#fff;font-size:.5rem;display:none;align-items:center;justify-content:center;cursor:pointer;border:none;line-height:1}
+.tw:hover .tdel{display:flex}
+
+.digit-filter{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.5rem}
+.dfbtn{background:var(--bg);border:1px solid var(--border);padding:.2rem .4rem;font-family:'IBM Plex Mono',monospace;font-size:.52rem;color:var(--muted);cursor:pointer;transition:all .15s}
+.dfbtn.active,.dfbtn:hover{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+
+.train-settings{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.7rem}
+.ts{display:flex;flex-direction:column;gap:.22rem}
+.ts-label{font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ts input{background:var(--bg);border:1px solid var(--border);padding:.4rem .55rem;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:.68rem;outline:none;transition:border-color .2s;width:100%}
+.ts input:focus{border-color:var(--ochre)}
+
+.prog-wrap{margin-bottom:.55rem}
+.prog-head{display:flex;justify-content:space-between;font-size:.5rem;color:var(--muted);margin-bottom:.28rem;text-transform:uppercase;letter-spacing:.06em}
+.prog-track{height:4px;background:var(--border);overflow:hidden}
+.prog-fill{height:100%;background:var(--ochre);width:0%;transition:width .3s}
+
+.tlog{background:var(--bg);border:1px solid var(--border);padding:.6rem;height:85px;overflow-y:auto;font-size:.56rem;color:var(--muted);line-height:1.85;margin-bottom:.6rem}
+.tlog::-webkit-scrollbar{width:3px}
+.tlog::-webkit-scrollbar-thumb{background:var(--border2)}
+.tlog-ep{color:var(--ochre);font-weight:600}
+.tlog-ok{color:var(--green)}
+
+.big-btn{width:100%;border:none;padding:.7rem;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:all .2s;margin-bottom:.4rem}
+.big-btn:last-child{margin-bottom:0}
+.bbtn-train{background:var(--ink);color:var(--cream)}
+.bbtn-train:hover{background:var(--ochre)}
+.bbtn-train:disabled{opacity:.35;cursor:not-allowed}
+.add-feedback{font-size:.58rem;color:var(--green);opacity:0;transition:opacity .3s;margin-left:.4rem}
+.add-feedback.show{opacity:1}
+
+/* STATUS */
+.status{background:var(--cream);border:1px solid var(--border);padding:.65rem 1rem;display:flex;align-items:center;gap:.6rem;font-size:.62rem;color:var(--muted);margin-top:1rem}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.sdot.ready{background:var(--green)}
+.sdot.work{background:var(--ochre);animation:bl 1s infinite}
+.sdot.err{background:var(--red)}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}
+
+@media(max-width:700px){.dp-layout,.manual-layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="nav">
+  <a href="../index.html">← Home</a>
+  <span class="nav-sep">/</span>
+  <span class="nav-cur">Assignment 2</span>
+</nav>
+
+<div class="hdr">
+  <div class="hdr-tag">Assignment 02</div>
+  <h1>Canvas <em>Digit Recognition</em></h1>
+  <p>Two modes: instantly use a pre-trained MNIST model, or draw your own training samples and train a custom CNN from scratch.</p>
+</div>
+
+<!-- MODE TABS -->
+<div class="mode-tabs">
+  <div class="mode-tab active" id="tab-pre" onclick="switchMode('pre')">
+    ⚡ Pre-trained Model <span class="tab-badge">Instant</span>
+  </div>
+  <div class="mode-tab" id="tab-manual" onclick="switchMode('manual')">
+    ✏️ Train on Your Drawings <span class="tab-badge">Custom</span>
+  </div>
+</div>
+
+<!-- ══════════ SECTION A: PRE-TRAINED ══════════ -->
+<div class="section active" id="sec-pre">
+  <div class="dp-layout">
+
+    <!-- Left: Canvas -->
+    <div>
+      <div class="panel a-rust" style="margin-bottom:1rem">
+        <div class="panel-title">Draw a digit (0–9)</div>
+        <canvas id="drawCanvas" width="280" height="280"></canvas>
+        <div class="brush-row">
+          <span class="brush-lbl">Brush</span>
+          <input type="range" id="brush1" min="10" max="45" value="22" oninput="setBrush1(+this.value)"/>
+          <span class="bval" id="bval1">22</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-clr" onclick="clearDraw1()">✕ Clear</button>
+          <button class="btn btn-go" id="classifyBtn" onclick="classifyPre()" disabled>Classify →</button>
+        </div>
+        <div class="preview-row">
+          <span class="prev-lbl">28×28:</span>
+          <canvas id="prev1" width="56" height="56" style="width:56px;height:56px;image-rendering:pixelated;border:1px solid var(--border)"></canvas>
+        </div>
+      </div>
+
+      <!-- Model loader -->
+      <div class="panel a-sage">
+        <div class="panel-title">Pre-trained MNIST Model</div>
+        <div class="model-status-box" id="preModelStatus">
+          <span class="warn">Not loaded yet.</span> Click below to train a <strong>3-block Deep CNN</strong> on all <strong>65,000 MNIST samples</strong> with Batch Norm + LR decay — targets ~99% accuracy.
+        </div>
+        <div class="load-wrap" id="preLoadWrap" style="display:none">
+          <div class="load-track"><div class="load-fill" id="preLoadFill"></div></div>
+          <div class="load-txt" id="preLoadTxt">Loading…</div>
+        </div>
+        <button class="load-btn" id="preLoadBtn" onclick="loadPreTrained()">⚡ Load Pre-trained Model</button>
+      </div>
+    </div>
+
+    <!-- Right: Prediction -->
+    <div class="pred-right">
+      <div class="panel a-ochre">
+        <div class="panel-title">Prediction</div>
+        <div id="predAreaPre"><div class="pred-ph">Load the model, draw a digit, then click Classify.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SECTION B: MANUAL TRAINING ══════════ -->
+<div class="section" id="sec-manual">
+  <div class="manual-layout">
+
+    <!-- Left: Draw + Add -->
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="panel a-rust">
+        <div class="panel-title">1. Select digit — draw — add sample</div>
+        <div class="digit-tabs" id="digitTabs"></div>
+        <canvas id="drawCanvas2" width="240" height="240"></canvas>
+        <div class="brush-row">
+          <span class="brush-lbl">Brush</span>
+          <input type="range" id="brush2" min="10" max="45" value="22" oninput="setBrush2(+this.value)"/>
+          <span class="bval" id="bval2">22</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-clr" onclick="clearDraw2()">✕ Clear</button>
+          <button class="btn btn-add" onclick="addSample()">+ Add</button>
+        </div>
+        <div class="preview-row">
+          <span class="prev-lbl">28×28:</span>
+          <canvas id="prev2" width="56" height="56" style="width:56px;height:56px;image-rendering:pixelated;border:1px solid var(--border)"></canvas>
+          <span class="add-feedback" id="addFb">✓ Saved!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Middle: Dataset + Thumbs -->
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="panel a-ochre">
+        <div class="panel-title">2. Dataset (need ≥5 per digit)</div>
+        <div class="dataset-grid" id="datasetGrid"></div>
+      </div>
+      <div class="panel a-ochre">
+        <div class="panel-title">Sample Browser</div>
+        <div class="digit-filter" id="digitFilter"></div>
+        <div class="thumb-area" id="thumbArea"><span style="font-size:.6rem;color:var(--muted)">No samples yet…</span></div>
+      </div>
+    </div>
+
+    <!-- Right: Train + Test -->
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <div class="panel a-sage">
+        <div class="panel-title">3. Activate KNN Classifier (instant)</div>
+        <div style="font-size:.6rem;color:var(--muted);line-height:1.75;background:var(--bg);border:1px solid var(--border);padding:.65rem .8rem;margin-bottom:.8rem">Uses <span style="color:var(--sage);font-weight:600">K-Nearest Neighbour</span> — zero training time. Add samples per digit and click Apply.</div>
+        <div class="prog-wrap">
+          <div class="prog-head"><span>Status</span><span id="mEpLbl">—</span></div>
+          <div class="prog-track"><div class="prog-fill" id="mProg"></div></div>
+        </div>
+        <div class="tlog" id="mLog">Add at least 2 different digits then click Apply…</div>
+        <button class="big-btn bbtn-train" id="trainBtn" onclick="trainManual()" disabled>▶ Apply KNN Classifier</button>
+      </div>
+
+      <div class="panel a-amber">
+        <div class="panel-title">4. Draw to test your model</div>
+        <canvas id="testCanvas" width="200" height="200" style="display:block;width:100%;aspect-ratio:1;background:#1a1208;border:2px solid var(--ink);cursor:crosshair;touch-action:none;margin-bottom:.5rem"></canvas>
+        <div class="btn-row">
+          <button class="btn btn-clr" onclick="clearTest()">✕ Clear</button>
+          <button class="btn btn-go" id="testBtn" onclick="classifyManual()" disabled>Classify →</button>
+        </div>
+        <div id="predAreaManual" style="margin-top:.7rem"><div class="pred-ph">Train a model to test.</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="status">
+  <div class="sdot work" id="sdot"></div>
+  <span id="stxt">Initialising TensorFlow.js…</span>
+</div>
+
+</div>
+<script src="draw.js"></script>
+</body>
+</html>

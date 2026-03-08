@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Practical 4 — Digit Recognition</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f0e8;
+  --bg2:#ede8de;
+  --ink:#1a1208;
+  --border:#c8b89a;
+  --border2:#a89070;
+  --ochre:#c97d20;
+  --rust:#c44b1a;
+  --sage:#4a7c59;
+  --cream:#faf7f2;
+  --muted:#8a7560;
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'IBM Plex Mono',monospace;
+  background:var(--bg);
+  color:var(--ink);
+  min-height:100vh;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:repeating-linear-gradient(-45deg,transparent,transparent 28px,rgba(180,150,100,.05) 28px,rgba(180,150,100,.05) 29px);
+  pointer-events:none;z-index:0;
+}
+.container{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:3rem 2rem 5rem}
+
+/* TOPBAR */
+.topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:1.2rem;border-bottom:2px solid var(--ink);margin-bottom:3rem;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.topbar-l{display:flex;gap:1.5rem}
+.topbar-r{display:flex;gap:.5rem;align-items:center}
+.livdot{width:7px;height:7px;border-radius:50%;background:var(--sage);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* HEADER */
+.header{display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:end;margin-bottom:2.5rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}
+.hdr-h1{font-family:'DM Serif Display',serif;font-size:clamp(3rem,8vw,6rem);line-height:.9;letter-spacing:-.02em;color:var(--ink);margin-bottom:.6rem}
+.hdr-h1 em{font-style:italic;color:var(--ochre)}
+.hdr-p{font-size:.7rem;line-height:1.85;color:var(--muted);max-width:400px}
+.hdr-badge{display:inline-block;background:var(--ink);color:var(--bg);font-size:.56rem;letter-spacing:.15em;text-transform:uppercase;padding:.5rem 1rem;border-radius:2px;margin-bottom:.5rem}
+.hdr-ver{display:block;font-size:.56rem;color:var(--muted);letter-spacing:.08em;text-align:right}
+
+/* RULER */
+.ruler{height:16px;background:repeating-linear-gradient(90deg,var(--border2) 0,var(--border2) 1px,transparent 1px,transparent 10px);margin-bottom:2rem;opacity:.4}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);background:var(--cream);margin-bottom:2rem}
+.stat{padding:1.1rem;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.stat-val{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--ochre);line-height:1;margin-bottom:.2rem}
+.stat-key{font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+
+/* CARDS GRID */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:0;background:var(--ink);border:2px solid var(--ink);margin-bottom:2.5rem}
+.card{
+  background:var(--cream);padding:2rem 1.5rem;
+  text-decoration:none;color:var(--ink);
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+  transition:background .2s;
+  animation:fadeUp .5s ease both;
+  border-right:1px solid rgba(255,255,255,.08);
+}
+.card:last-child{border-right:none}
+.card:nth-child(1){animation-delay:.08s;--cc:var(--ochre)}
+.card:nth-child(2){animation-delay:.16s;--cc:var(--rust)}
+.card:nth-child(3){animation-delay:.24s;--cc:var(--sage)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.card:hover{background:var(--bg2)}
+.card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--cc);transform:scaleX(0);transform-origin:left;transition:transform .3s ease}
+.card:hover::after{transform:scaleX(1)}
+.card-num{font-family:'DM Serif Display',serif;font-size:4rem;color:var(--cc);opacity:.1;position:absolute;top:-.3rem;right:.8rem;line-height:1;transition:opacity .3s}
+.card:hover .card-num{opacity:.2}
+.card-tag{font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--cc);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+.card-tag::before{content:'';width:14px;height:1px;background:var(--cc)}
+.card-title{font-family:'DM Serif Display',serif;font-size:1.15rem;line-height:1.15;margin-bottom:.7rem}
+.card-desc{font-size:.6rem;color:var(--muted);line-height:1.8;flex:1;margin-bottom:1.2rem}
+.card-pills{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:1.1rem}
+.pill{font-size:.48rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--border);padding:.18rem .45rem;color:var(--muted);background:var(--bg)}
+.card-arrow{font-size:.6rem;color:var(--cc);letter-spacing:.04em;display:flex;align-items:center;gap:.3rem;transition:gap .2s}
+.card:hover .card-arrow{gap:.6rem}
+
+/* FOOTER */
+footer{padding-top:1.5rem;border-top:2px solid var(--ink);display:flex;justify-content:space-between;align-items:center;font-size:.57rem;color:var(--muted);letter-spacing:.06em}
+.footer-r{display:flex;gap:1rem}
+
+@media(max-width:680px){
+  .cards{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .header{grid-template-columns:1fr}
+  .hdr-ver{text-align:left}
+  footer{flex-direction:column;gap:.8rem;text-align:center}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="topbar">
+    <div class="topbar-l"><span>TensorFlow.js</span><span>Practical 04</span><span>MNIST</span></div>
+    <div class="topbar-r"><div class="livdot"></div><span>WebGL Active</span></div>
+  </div>
+
+  <div class="header">
+    <div>
+      <div class="hdr-h1">Digit<br/><em>Recognition</em></div>
+      <p class="hdr-p">Three in-browser ML experiments using MNIST. Train models, draw digits, and classify hand gestures — entirely in the browser, zero server required.</p>
+    </div>
+    <div>
+      <div class="hdr-badge">Practical 04</div>
+      <span class="hdr-ver">TF.js 4.15 · WebGL · Live Server</span>
+    </div>
+  </div>
+
+  <div class="ruler"></div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val">3</div><div class="stat-key">Assignments</div></div>
+    <div class="stat"><div class="stat-val">60K</div><div class="stat-key">MNIST Images</div></div>
+    <div class="stat"><div class="stat-val">CNN</div><div class="stat-key">Architecture</div></div>
+    <div class="stat"><div class="stat-val">0</div><div class="stat-key">Server Needed</div></div>
+  </div>
+
+  <div class="cards">
+    <a href="assignment1/index.html" class="card">
+      <div class="card-num">01</div>
+      <div class="card-tag">Assignment 01</div>
+      <div class="card-title">MNIST Training &amp; Comparison</div>
+      <div class="card-desc">Train a CNN and Dense network on MNIST. Watch live loss and accuracy over 5 epochs. Compare architectures side-by-side.</div>
+      <div class="card-pills"><span class="pill">CNN</span><span class="pill">Dense Net</span><span class="pill">Live Training</span></div>
+      <div class="card-arrow">Open →</div>
+    </a>
+    <a href="assignment2/index.html" class="card">
+      <div class="card-num">02</div>
+      <div class="card-tag">Assignment 02</div>
+      <div class="card-title">Canvas Digit Recognition</div>
+      <div class="card-desc">Draw any digit on an interactive canvas. Preprocessed to 28×28 grayscale and classified by the trained CNN instantly.</div>
+      <div class="card-pills"><span class="pill">Canvas API</span><span class="pill">28×28</span><span class="pill">Real-time</span></div>
+      <div class="card-arrow">Open →</div>
+    </a>
+    <a href="assignment3/index.html" class="card">
+      <div class="card-num">03</div>
+      <div class="card-tag">Assignment 03</div>
+      <div class="card-title">Webcam Finger Digits</div>
+      <div class="card-desc">Collect webcam hand gesture samples. MobileNet extracts features; a custom dense classifier trains and predicts live.</div>
+      <div class="card-pills"><span class="pill">MobileNet</span><span class="pill">Transfer Learning</span><span class="pill">Webcam</span></div>
+      <div class="card-arrow">Open →</div>
+    </a>
+  </div>
+
+  <footer>
+    <span>Practical 4 · MNIST Digit Recognition</span>
+    <div class="footer-r"><span>TF.js 4.15</span><span>WebGL</span><span>Live Server</span></div>
+  </footer>
+
+</div>
+</body>
+</html>
