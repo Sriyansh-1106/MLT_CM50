@@ -1,7 +1,7 @@
 <h1> MLT_CM50</h1>
 
 <br>This repository contains multiple machine learning programs and experiments built using different languages. It explores ML concepts, algorithms, and practical implementations.<br>
-✨ Multiple machine learning experiments
+✨ Multiple machine learning experiments <br>
 📊 Implementation of different ML algorithms
 🧠 Practical examples for learning ML concepts
 ⚙️ Programs demonstrating data analysis and model behavior
