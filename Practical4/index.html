@@ -1,467 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TensorFlow.js ML Lab</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Practical 4 — Digit Recognition</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f0e8;
+  --bg2:#ede8de;
+  --ink:#1a1208;
+  --border:#c8b89a;
+  --border2:#a89070;
+  --ochre:#c97d20;
+  --rust:#c44b1a;
+  --sage:#4a7c59;
+  --cream:#faf7f2;
+  --muted:#8a7560;
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'IBM Plex Mono',monospace;
+  background:var(--bg);
+  color:var(--ink);
+  min-height:100vh;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:repeating-linear-gradient(-45deg,transparent,transparent 28px,rgba(180,150,100,.05) 28px,rgba(180,150,100,.05) 29px);
+  pointer-events:none;z-index:0;
+}
+.container{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:3rem 2rem 5rem}
 
-    :root {
-      --bg: #050810;
-      --surface: #0c1120;
-      --border: #1a2540;
-      --accent: #00e5ff;
-      --accent2: #ff6b35;
-      --accent3: #7c3aed;
-      --text: #e2e8f0;
-      --muted: #64748b;
-      --glow: 0 0 40px rgba(0,229,255,0.15);
-    }
+/* TOPBAR */
+.topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:1.2rem;border-bottom:2px solid var(--ink);margin-bottom:3rem;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.topbar-l{display:flex;gap:1.5rem}
+.topbar-r{display:flex;gap:.5rem;align-items:center}
+.livdot{width:7px;height:7px;border-radius:50%;background:var(--sage);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-    html { scroll-behavior: smooth; }
+/* HEADER */
+.header{display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:end;margin-bottom:2.5rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}
+.hdr-h1{font-family:'DM Serif Display',serif;font-size:clamp(3rem,8vw,6rem);line-height:.9;letter-spacing:-.02em;color:var(--ink);margin-bottom:.6rem}
+.hdr-h1 em{font-style:italic;color:var(--ochre)}
+.hdr-p{font-size:.7rem;line-height:1.85;color:var(--muted);max-width:400px}
+.hdr-badge{display:inline-block;background:var(--ink);color:var(--bg);font-size:.56rem;letter-spacing:.15em;text-transform:uppercase;padding:.5rem 1rem;border-radius:2px;margin-bottom:.5rem}
+.hdr-ver{display:block;font-size:.56rem;color:var(--muted);letter-spacing:.08em;text-align:right}
 
-    body {
-      font-family: 'DM Mono', monospace;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+/* RULER */
+.ruler{height:16px;background:repeating-linear-gradient(90deg,var(--border2) 0,var(--border2) 1px,transparent 1px,transparent 10px);margin-bottom:2rem;opacity:.4}
 
-    /* Animated grid background */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
-      background-size: 60px 60px;
-      pointer-events: none;
-      z-index: 0;
-    }
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);background:var(--cream);margin-bottom:2rem}
+.stat{padding:1.1rem;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.stat-val{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--ochre);line-height:1;margin-bottom:.2rem}
+.stat-key{font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
 
-    /* Orb glows */
-    body::after {
-      content: '';
-      position: fixed;
-      width: 600px; height: 600px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%);
-      top: -200px; right: -200px;
-      pointer-events: none;
-      z-index: 0;
-    }
+/* CARDS GRID */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:0;background:var(--ink);border:2px solid var(--ink);margin-bottom:2.5rem}
+.card{
+  background:var(--cream);padding:2rem 1.5rem;
+  text-decoration:none;color:var(--ink);
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+  transition:background .2s;
+  animation:fadeUp .5s ease both;
+  border-right:1px solid rgba(255,255,255,.08);
+}
+.card:last-child{border-right:none}
+.card:nth-child(1){animation-delay:.08s;--cc:var(--ochre)}
+.card:nth-child(2){animation-delay:.16s;--cc:var(--rust)}
+.card:nth-child(3){animation-delay:.24s;--cc:var(--sage)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.card:hover{background:var(--bg2)}
+.card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--cc);transform:scaleX(0);transform-origin:left;transition:transform .3s ease}
+.card:hover::after{transform:scaleX(1)}
+.card-num{font-family:'DM Serif Display',serif;font-size:4rem;color:var(--cc);opacity:.1;position:absolute;top:-.3rem;right:.8rem;line-height:1;transition:opacity .3s}
+.card:hover .card-num{opacity:.2}
+.card-tag{font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--cc);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+.card-tag::before{content:'';width:14px;height:1px;background:var(--cc)}
+.card-title{font-family:'DM Serif Display',serif;font-size:1.15rem;line-height:1.15;margin-bottom:.7rem}
+.card-desc{font-size:.6rem;color:var(--muted);line-height:1.8;flex:1;margin-bottom:1.2rem}
+.card-pills{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:1.1rem}
+.pill{font-size:.48rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--border);padding:.18rem .45rem;color:var(--muted);background:var(--bg)}
+.card-arrow{font-size:.6rem;color:var(--cc);letter-spacing:.04em;display:flex;align-items:center;gap:.3rem;transition:gap .2s}
+.card:hover .card-arrow{gap:.6rem}
 
-    .orb2 {
-      position: fixed;
-      width: 400px; height: 400px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(0,229,255,0.08) 0%, transparent 70%);
-      bottom: -100px; left: -100px;
-      pointer-events: none;
-      z-index: 0;
-    }
+/* FOOTER */
+footer{padding-top:1.5rem;border-top:2px solid var(--ink);display:flex;justify-content:space-between;align-items:center;font-size:.57rem;color:var(--muted);letter-spacing:.06em}
+.footer-r{display:flex;gap:1rem}
 
-    .container {
-      position: relative;
-      z-index: 1;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 0 2rem;
-    }
-
-    /* HEADER */
-    header {
-      padding: 3rem 0 2rem;
-      text-align: center;
-      animation: fadeDown 0.8s ease both;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: rgba(0,229,255,0.08);
-      border: 1px solid rgba(0,229,255,0.2);
-      border-radius: 100px;
-      padding: 0.4rem 1rem;
-      font-size: 0.7rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 1.5rem;
-    }
-
-    .badge::before {
-      content: '';
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 8px var(--accent);
-      animation: pulse 2s infinite;
-    }
-
-    h1 {
-      font-family: 'Syne', sans-serif;
-      font-size: clamp(2.5rem, 6vw, 4.5rem);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: -0.02em;
-      margin-bottom: 1rem;
-    }
-
-    h1 span.highlight {
-      background: linear-gradient(135deg, var(--accent), var(--accent3));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .subtitle {
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.7;
-      max-width: 520px;
-      margin: 0 auto 3rem;
-    }
-
-    /* STATS ROW */
-    .stats {
-      display: flex;
-      justify-content: center;
-      gap: 3rem;
-      margin-bottom: 4rem;
-      animation: fadeUp 0.8s 0.2s ease both;
-    }
-
-    .stat {
-      text-align: center;
-    }
-
-    .stat-num {
-      font-family: 'Syne', sans-serif;
-      font-size: 1.8rem;
-      font-weight: 800;
-      color: var(--accent);
-    }
-
-    .stat-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-top: 0.2rem;
-    }
-
-    /* DIVIDER */
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      animation: fadeUp 0.8s 0.3s ease both;
-    }
-
-    .divider-line {
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-
-    .divider-text {
-      font-size: 0.65rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    /* ASSIGNMENT CARDS */
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 5rem;
-    }
-
-    .card {
-      position: relative;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2rem;
-      text-decoration: none;
-      color: inherit;
-      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-      overflow: hidden;
-      animation: fadeUp 0.8s ease both;
-    }
-
-    .card:nth-child(1) { animation-delay: 0.3s; --card-accent: var(--accent); }
-    .card:nth-child(2) { animation-delay: 0.45s; --card-accent: var(--accent2); }
-    .card:nth-child(3) { animation-delay: 0.6s; --card-accent: var(--accent3); }
-
-    .card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
-      pointer-events: none;
-    }
-
-    .card::after {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--card-accent), transparent);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .card:hover {
-      transform: translateY(-6px);
-      border-color: var(--card-accent);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 30px rgba(0,229,255,0.05);
-    }
-
-    .card:hover::after { opacity: 1; }
-
-    .card-num {
-      font-size: 0.65rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--card-accent);
-      margin-bottom: 1rem;
-      font-weight: 500;
-    }
-
-    .card-icon {
-      width: 52px; height: 52px;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      margin-bottom: 1.2rem;
-    }
-
-    .card h2 {
-      font-family: 'Syne', sans-serif;
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin-bottom: 0.6rem;
-      line-height: 1.3;
-    }
-
-    .card p {
-      color: var(--muted);
-      font-size: 0.78rem;
-      line-height: 1.7;
-      margin-bottom: 1.5rem;
-    }
-
-    .card-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .tag {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 0.2rem 0.6rem;
-      font-size: 0.62rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .card-cta {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.75rem;
-      color: var(--card-accent);
-      font-weight: 500;
-      letter-spacing: 0.05em;
-      transition: gap 0.2s ease;
-    }
-
-    .card:hover .card-cta { gap: 0.8rem; }
-
-    .card-cta svg {
-      width: 16px; height: 16px;
-      transition: transform 0.2s ease;
-    }
-
-    .card:hover .card-cta svg { transform: translateX(4px); }
-
-    /* TECH STACK FOOTER */
-    .tech-footer {
-      border-top: 1px solid var(--border);
-      padding: 2rem 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: gap;
-      animation: fadeUp 0.8s 0.7s ease both;
-    }
-
-    .tech-list {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-    }
-
-    .tech-item {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.7rem;
-      color: var(--muted);
-      letter-spacing: 0.05em;
-    }
-
-    .tech-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--accent);
-      opacity: 0.6;
-    }
-
-    .version-badge {
-      font-size: 0.65rem;
-      color: var(--muted);
-      letter-spacing: 0.1em;
-    }
-
-    @keyframes fadeDown {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    @media (max-width: 600px) {
-      .stats { gap: 1.5rem; }
-      .tech-footer { flex-direction: column; gap: 1rem; align-items: flex-start; }
-    }
-  </style>
+@media(max-width:680px){
+  .cards{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .header{grid-template-columns:1fr}
+  .hdr-ver{text-align:left}
+  footer{flex-direction:column;gap:.8rem;text-align:center}
+}
+</style>
 </head>
 <body>
-  <div class="orb2"></div>
+<div class="container">
 
-  <div class="container">
-    <header>
-      <div class="badge">TensorFlow.js · Browser ML</div>
-      <h1>Machine Learning<br /><span class="highlight">in the Browser</span></h1>
-      <p class="subtitle">A hands-on lab exploring real-time image classification, webcam training, and model comparison — all running locally with zero server setup.</p>
-    </header>
-
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-num">3</div>
-        <div class="stat-label">Assignments</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">MobileNet</div>
-        <div class="stat-label">Pre-trained Model</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">0</div>
-        <div class="stat-label">Server Required</div>
-      </div>
-    </div>
-
-    <div class="divider">
-      <div class="divider-line"></div>
-      <div class="divider-text">Assignments</div>
-      <div class="divider-line"></div>
-    </div>
-
-    <div class="cards">
-
-      <a href="assignment1/index.html" class="card">
-        <div class="card-num">Assignment 01</div>
-        <div class="card-icon">🖼️</div>
-        <h2>MobileNet Image Classification</h2>
-        <p>Load pre-trained MobileNet and classify images from a local folder. See top-3 predictions with confidence bars and live inference results.</p>
-        <div class="card-tags">
-          <span class="tag">MobileNet</span>
-          <span class="tag">Top-3 Predictions</span>
-          <span class="tag">Confidence Bars</span>
-        </div>
-        <div class="card-cta">
-          Open Lab
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </div>
-      </a>
-
-      <a href="assignment2/index.html" class="card">
-        <div class="card-num">Assignment 02</div>
-        <div class="card-icon">📷</div>
-        <h2>Webcam Transfer Learning</h2>
-        <p>Use your webcam as input. Train a custom neural classifier on top of MobileNet features with adjustable epochs, batch size, and real-time predictions.</p>
-        <div class="card-tags">
-          <span class="tag">Webcam</span>
-          <span class="tag">Transfer Learning</span>
-          <span class="tag">Live Training</span>
-        </div>
-        <div class="card-cta">
-          Open Lab
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </div>
-      </a>
-
-      <a href="assignment3/index.html" class="card">
-        <div class="card-num">Assignment 03</div>
-        <div class="card-icon">⚖️</div>
-        <h2>Model Comparison</h2>
-        <p>Classify any image and compare MobileNet prediction outputs side by side — exploring confidence scores and classification patterns.</p>
-        <div class="card-tags">
-          <span class="tag">Model Analysis</span>
-          <span class="tag">Comparison</span>
-          <span class="tag">WebGL Backend</span>
-        </div>
-        <div class="card-cta">
-          Open Lab
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </div>
-      </a>
-
-    </div>
-
-    <div class="tech-footer">
-      <div class="tech-list">
-        <div class="tech-item"><div class="tech-dot"></div>TensorFlow.js 4.x</div>
-        <div class="tech-item"><div class="tech-dot"></div>MobileNet v2</div>
-        <div class="tech-item"><div class="tech-dot"></div>WebGL Accelerated</div>
-        <div class="tech-item"><div class="tech-dot"></div>Live Server Ready</div>
-      </div>
-      <div class="version-badge">ML Lab · v1.0</div>
-    </div>
-
+  <div class="topbar">
+    <div class="topbar-l"><span>TensorFlow.js</span><span>Practical 04</span><span>MNIST</span></div>
+    <div class="topbar-r"><div class="livdot"></div><span>WebGL Active</span></div>
   </div>
+
+  <div class="header">
+    <div>
+      <div class="hdr-h1">Digit<br/><em>Recognition</em></div>
+      <p class="hdr-p">Three in-browser ML experiments using MNIST. Train models, draw digits, and classify hand gestures — entirely in the browser, zero server required.</p>
+    </div>
+    <div>
+      <div class="hdr-badge">Practical 04</div>
+      <span class="hdr-ver">TF.js 4.15 · WebGL · Live Server</span>
+    </div>
+  </div>
+
+  <div class="ruler"></div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val">3</div><div class="stat-key">Assignments</div></div>
+    <div class="stat"><div class="stat-val">60K</div><div class="stat-key">MNIST Images</div></div>
+    <div class="stat"><div class="stat-val">CNN</div><div class="stat-key">Architecture</div></div>
+    <div class="stat"><div class="stat-val">0</div><div class="stat-key">Server Needed</div></div>
+  </div>
+
+  <div class="cards">
+    <a href="assignment1/index.html" class="card">
+      <div class="card-num">01</div>
+      <div class="card-tag">Assignment 01</div>
+      <div class="card-title">MNIST Training &amp; Comparison</div>
+      <div class="card-desc">Train a CNN and Dense network on MNIST. Watch live loss and accuracy over 5 epochs. Compare architectures side-by-side.</div>
+      <div class="card-pills"><span class="pill">CNN</span><span class="pill">Dense Net</span><span class="pill">Live Training</span></div>
+      <div class="card-arrow">Open →</div>
+    </a>
+    <a href="assignment2/index.html" class="card">
+      <div class="card-num">02</div>
+      <div class="card-tag">Assignment 02</div>
+      <div class="card-title">Canvas Digit Recognition</div>
+      <div class="card-desc">Draw any digit on an interactive canvas. Preprocessed to 28×28 grayscale and classified by the trained CNN instantly.</div>
+      <div class="card-pills"><span class="pill">Canvas API</span><span class="pill">28×28</span><span class="pill">Real-time</span></div>
+      <div class="card-arrow">Open →</div>
+    </a>
+    <a href="assignment3/index.html" class="card">
+      <div class="card-num">03</div>
+      <div class="card-tag">Assignment 03</div>
+      <div class="card-title">Webcam Finger Digits</div>
+      <div class="card-desc">Collect webcam hand gesture samples. MobileNet extracts features; a custom dense classifier trains and predicts live.</div>
+      <div class="card-pills"><span class="pill">MobileNet</span><span class="pill">Transfer Learning</span><span class="pill">Webcam</span></div>
+      <div class="card-arrow">Open →</div>
+    </a>
+  </div>
+
+  <footer>
+    <span>Practical 4 · MNIST Digit Recognition</span>
+    <div class="footer-r"><span>TF.js 4.15</span><span>WebGL</span><span>Live Server</span></div>
+  </footer>
+
+</div>
 </body>
 </html>

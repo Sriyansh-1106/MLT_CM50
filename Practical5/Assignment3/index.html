@@ -1,213 +1,361 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>A3 — Webcam Finger Digits</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#f5f0e8;--bg2:#ede8de;--ink:#1a1208;--border:#c8b89a;--border2:#a89070;
-  --ochre:#c97d20;--rust:#c44b1a;--sage:#4a7c59;--cream:#faf7f2;--muted:#8a7560;
-  --red:#c44b1a;--green:#4a7c59;--amber:#e8941a;
-}
-body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--ink);min-height:100vh}
-body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(-45deg,transparent,transparent 28px,rgba(180,150,100,.05) 28px,rgba(180,150,100,.05) 29px);pointer-events:none;z-index:0}
-.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:2rem}
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Assignment 3 – MobileNet 3-Way Comparison</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #06080f; --surface: #0d1320; --surface2: #131b2e; --border: #1e2d47;
+      --v1: #00e5ff; --v2: #a78bfa; --ef: #34d399;
+      --text: #e2e8f0; --muted: #64748b; --green: #22c55e;
+    }
+    body { font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: linear-gradient(rgba(0,229,255,.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(167,139,250,.02) 1px, transparent 1px);
+      background-size: 56px 56px;
+    }
+    .glow1 { position: fixed; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(0,229,255,.07) 0%, transparent 70%); top:-160px; left:-160px; pointer-events:none; z-index:0; }
+    .glow2 { position: fixed; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(167,139,250,.07) 0%, transparent 70%); bottom:-160px; right:-160px; pointer-events:none; z-index:0; }
+    .container { position: relative; z-index: 1; max-width: 1140px; margin: 0 auto; padding: 2rem; }
 
-.nav{display:flex;align-items:center;gap:.8rem;margin-bottom:2rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding-bottom:1rem;border-bottom:1px solid var(--border)}
-.nav a{color:var(--muted);text-decoration:none;transition:color .2s}
-.nav a:hover{color:var(--sage)}
-.nav-sep{color:var(--border2)}
-.nav-cur{color:var(--sage)}
+    /* NAV */
+    .nav { display: flex; align-items: center; gap: 1rem; margin-bottom: 2.5rem; }
+    .nav a { color: var(--muted); text-decoration: none; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; transition: color .2s; }
+    .nav a:hover { color: var(--v1); }
+    .nav-sep { color: var(--border); }
+    .nav-current { color: var(--v1); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; }
 
-.hdr{margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)}
-.hdr-tag{font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;color:var(--sage);margin-bottom:.4rem}
-.hdr h1{font-family:'DM Serif Display',serif;font-size:clamp(1.8rem,4vw,2.8rem);line-height:1}
-.hdr h1 em{font-style:italic;color:var(--sage)}
-.hdr p{color:var(--muted);font-size:.68rem;line-height:1.8;margin-top:.5rem;max-width:640px}
+    /* HEADER */
+    .header { margin-bottom: 2rem; }
+    .header-label { font-size: .62rem; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); margin-bottom: .5rem; }
+    .header h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; line-height: 1.1; margin-bottom: .5rem; }
+    .header h1 .v1 { color: var(--v1); }
+    .header h1 .v2 { color: var(--v2); }
+    .header h1 .ef { color: var(--ef); }
+    .header p { color: var(--muted); font-size: .78rem; line-height: 1.7; max-width: 680px; }
 
-/* STEP TRACKER */
-.steps{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.5rem}
-.step{display:flex;align-items:center;gap:.4rem;border:1px solid var(--border);padding:.28rem .75rem;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:all .25s;background:var(--cream)}
-.step-n{width:14px;height:14px;border:1px solid currentColor;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.45rem;flex-shrink:0}
-.step.active{border-color:var(--sage);color:var(--sage);background:rgba(74,124,89,.06)}
-.step.done{border-color:var(--green);color:var(--green);background:rgba(74,124,89,.06)}
+    /* LEGEND */
+    .legend { display: flex; gap: .8rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .legend-card { flex: 1; min-width: 200px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1rem; display: flex; align-items: flex-start; gap: .8rem; position: relative; overflow: hidden; }
+    .legend-card.c1 { border-color: rgba(0,229,255,.2); }
+    .legend-card.c1::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:var(--v1); }
+    .legend-card.c2 { border-color: rgba(167,139,250,.2); }
+    .legend-card.c2::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:var(--v2); }
+    .legend-card.c3 { border-color: rgba(52,211,153,.2); }
+    .legend-card.c3::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:var(--ef); }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .legend-dot.d1 { background: var(--v1); box-shadow: 0 0 7px var(--v1); }
+    .legend-dot.d2 { background: var(--v2); box-shadow: 0 0 7px var(--v2); }
+    .legend-dot.d3 { background: var(--ef); box-shadow: 0 0 7px var(--ef); }
+    .legend-name { font-family: 'Syne', sans-serif; font-size: .82rem; font-weight: 700; margin-bottom: .2rem; }
+    .legend-meta { font-size: .6rem; color: var(--muted); line-height: 1.6; }
+    .legend-meta span { display: inline-block; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: .1rem .35rem; margin: .1rem .1rem 0 0; }
 
-/* GRID */
-.grid{display:grid;grid-template-columns:300px 1fr;gap:1rem}
+    /* LOAD PROGRESS */
+    .load-progress { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem; }
+    .load-title { font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: .9rem; }
+    .load-row { display: flex; align-items: center; gap: .8rem; margin-bottom: .8rem; }
+    .load-row:last-child { margin-bottom: 0; }
+    .load-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background .3s, box-shadow .3s; }
+    .load-dot.a1 { background: var(--v1); animation: pulse 1s infinite; }
+    .load-dot.a2 { background: var(--v2); animation: pulse 1s infinite; }
+    .load-dot.a3 { background: var(--ef); animation: pulse 1s infinite; }
+    .load-dot.done { background: var(--green); box-shadow: 0 0 6px var(--green); animation: none; }
+    .load-col { flex: 1; display: flex; flex-direction: column; gap: .3rem; }
+    .load-top { display: flex; justify-content: space-between; align-items: center; }
+    .load-label { font-size: .7rem; color: var(--muted); }
+    .load-label.done { color: var(--text); }
+    .load-right { display: flex; gap: .5rem; align-items: center; }
+    .load-pct { font-size: .65rem; color: var(--muted); min-width: 30px; text-align: right; }
+    .load-time { font-size: .63rem; color: var(--green); }
+    .load-track { height: 4px; background: var(--surface2); border-radius: 100px; overflow: hidden; }
+    .load-fill { height: 100%; border-radius: 100px; width: 0%; transition: width .35s ease; }
+    .fill1 { background: linear-gradient(90deg, var(--v1), rgba(0,229,255,.3)); }
+    .fill2 { background: linear-gradient(90deg, var(--v2), rgba(167,139,250,.3)); }
+    .fill3 { background: linear-gradient(90deg, var(--ef), rgba(52,211,153,.3)); }
+    .load-sub { font-size: .6rem; color: var(--muted); min-height: .85rem; }
 
-/* PANEL */
-.panel{background:var(--cream);border:1px solid var(--border);padding:1.2rem;position:relative}
-.panel.p-sage::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--sage)}
-.panel.p-ochre::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--ochre)}
-.panel.p-rust::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--rust)}
-.panel.p-amber::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--amber)}
-.panel-title{font-size:.52rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:.9rem}
+    /* INPUT */
+    .input-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem; position: relative; overflow: hidden; }
+    .input-section::before { content:''; position:absolute; top:0;left:0;right:0; height:1px; background: linear-gradient(90deg, transparent, var(--v1), var(--v2), var(--ef), transparent); opacity: .4; }
+    .panel-title { font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+    .input-row { display: grid; grid-template-columns: 130px 1fr; gap: 1.2rem; align-items: start; }
+    .img-preview-box { width: 130px; height: 130px; border-radius: 10px; overflow: hidden; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
+    .img-preview-box img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .img-ph { color: var(--muted); font-size: .62rem; text-align: center; }
+    .img-ph span { font-size: 1.8rem; display: block; margin-bottom: .2rem; }
+    .input-right { display: flex; flex-direction: column; gap: .7rem; }
+    .quick-row { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .quick-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: .3rem .65rem; font-family: 'DM Mono', monospace; font-size: .65rem; color: var(--muted); cursor: pointer; transition: all .2s; }
+    .quick-btn:hover { border-color: var(--v1); color: var(--v1); }
+    .quick-btn.active { border-color: var(--v1); color: var(--v1); background: rgba(0,229,255,.06); }
+    .upload-label { display: inline-flex; align-items: center; gap: .5rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .55rem .9rem; font-size: .7rem; color: var(--muted); cursor: pointer; transition: all .2s; align-self: flex-start; }
+    .upload-label:hover { border-color: var(--v1); color: var(--text); }
+    .upload-label input { display: none; }
+    .compare-btn { width: 100%; background: linear-gradient(135deg, var(--v1), var(--v2), var(--ef)); color: #06080f; border: none; border-radius: 10px; padding: .85rem; font-family: 'DM Mono', monospace; font-weight: 500; font-size: .8rem; letter-spacing: .04em; cursor: pointer; transition: all .2s; margin-top: .5rem; }
+    .compare-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 8px 30px rgba(0,229,255,.12); }
+    .compare-btn:disabled { opacity: .35; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
 
-/* WEBCAM */
-#video{width:100%;background:#1a1208;aspect-ratio:4/3;object-fit:cover;display:none}
-.cam-ph{aspect-ratio:4/3;background:var(--bg2);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;color:var(--muted);font-size:.62rem}
-.cam-ph span{font-size:2rem}
-.cam-btn{width:100%;margin-top:.8rem;background:var(--sage);color:var(--cream);border:none;padding:.65rem;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .2s}
-.cam-btn:hover{background:#3a6247}
-.cam-btn:disabled{opacity:.4;cursor:not-allowed}
+    /* STATS STRIP */
+    .stats-strip { display: none; grid-template-columns: repeat(5,1fr); gap: .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem; }
+    .strip-stat { text-align: center; }
+    .strip-val { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; }
+    .sv1 { color: var(--v1); } .sv2 { color: var(--v2); } .sv3 { color: var(--ef); } .sn { color: var(--text); }
+    .strip-key { font-size: .55rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: .2rem; }
 
-/* DIGIT GRID */
-.digit-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin-bottom:.7rem}
-.dgt{
-  background:var(--bg);border:1px solid var(--border);padding:.55rem .2rem;
-  text-align:center;cursor:pointer;
-  font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--muted);
-  transition:all .2s;
-}
-.dgt:hover:not([disabled]){border-color:var(--ink);color:var(--ink)}
-.dgt.active{border-color:var(--amber);color:var(--amber);animation:capblink .5s infinite alternate}
-.dgt.has-data{border-color:var(--sage);color:var(--sage)}
-@keyframes capblink{from{background:transparent}to{background:rgba(232,148,26,.08)}}
-.dgt[disabled]{opacity:.3;cursor:not-allowed}
-.dgt-cnt{display:block;font-size:.42rem;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-top:.1rem}
+    /* RESULTS — 3 columns */
+    .results-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    .model-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.4rem; position: relative; overflow: hidden; min-height: 320px; }
+    .model-panel.p1 { border-color: rgba(0,229,255,.15); }
+    .model-panel.p1::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--v1),transparent); }
+    .model-panel.p2 { border-color: rgba(167,139,250,.15); }
+    .model-panel.p2::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--v2),transparent); }
+    .model-panel.p3 { border-color: rgba(52,211,153,.15); }
+    .model-panel.p3::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--ef),transparent); }
+    .model-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.1rem; }
+    .model-name { font-family: 'Syne', sans-serif; font-size: .95rem; font-weight: 700; }
+    .model-badge { font-size: .55rem; letter-spacing: .1em; text-transform: uppercase; border-radius: 100px; padding: .2rem .55rem; border: 1px solid; }
+    .bv1 { color:var(--v1); border-color:rgba(0,229,255,.3); background:rgba(0,229,255,.07); }
+    .bv2 { color:var(--v2); border-color:rgba(167,139,250,.3); background:rgba(167,139,250,.07); }
+    .bef { color:var(--ef); border-color:rgba(52,211,153,.3); background:rgba(52,211,153,.07); }
 
-/* TRAIN */
-.train-settings{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.8rem}
-.ts{display:flex;flex-direction:column;gap:.25rem}
-.ts-label{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.ts input{background:var(--bg);border:1px solid var(--border);padding:.4rem .6rem;color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:.7rem;outline:none;transition:border-color .2s}
-.ts input:focus{border-color:var(--sage)}
+    /* PRED BARS */
+    .pred-item { margin-bottom: .95rem; animation: slideIn .4s ease both; opacity:0; }
+    .pred-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .3rem; }
+    .pred-label { font-size: .7rem; max-width: 72%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; }
+    .pct1 { font-size: .66rem; color: var(--v1); font-weight: 500; }
+    .pct2 { font-size: .66rem; color: var(--v2); font-weight: 500; }
+    .pct3 { font-size: .66rem; color: var(--ef); font-weight: 500; }
+    .bar-track { height: 5px; background: var(--surface2); border-radius: 100px; overflow: hidden; }
+    .bar1 { height:100%; border-radius:100px; background:linear-gradient(90deg,var(--v1),rgba(0,229,255,.3)); transition:width .85s cubic-bezier(.25,1,.5,1); }
+    .bar2 { height:100%; border-radius:100px; background:linear-gradient(90deg,var(--v2),rgba(167,139,250,.3)); transition:width .85s cubic-bezier(.25,1,.5,1); }
+    .bar3 { height:100%; border-radius:100px; background:linear-gradient(90deg,var(--ef),rgba(52,211,153,.3)); transition:width .85s cubic-bezier(.25,1,.5,1); }
+    .rank-chip { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%; font-size:.5rem; background:rgba(255,255,255,.05); border:1px solid var(--border); margin-right:.3rem; flex-shrink:0; }
 
-.prog-wrap{margin-bottom:.6rem}
-.prog-head{display:flex;justify-content:space-between;font-size:.5rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.06em}
-.prog-track{height:4px;background:var(--border);overflow:hidden}
-.prog-fill{height:100%;background:var(--sage);width:0%;transition:width .3s}
+    /* ANALYSIS */
+    .analysis-panel { display:none; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; }
+    .analysis-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-top:1rem; }
+    .analysis-card { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:1rem; }
+    .analysis-card h4 { font-family:'Syne',sans-serif; font-size:.76rem; font-weight:700; margin-bottom:.5rem; }
+    .analysis-card p { font-size:.67rem; color:var(--muted); line-height:1.65; }
+    .analysis-card .hi { color:var(--text); }
 
-.log-small{background:var(--bg);border:1px solid var(--border);padding:.6rem;height:80px;overflow-y:auto;font-size:.56rem;color:var(--muted);line-height:1.8;margin-bottom:.7rem}
-.log-small::-webkit-scrollbar{width:3px}
-.log-small::-webkit-scrollbar-thumb{background:var(--border2)}
+    /* PLACEHOLDERS / SPINNERS */
+    .pred-placeholder { display:flex; flex-direction:column; align-items:center; justify-content:center; height:220px; color:var(--muted); gap:.5rem; }
+    .pred-placeholder span { font-size:1.8rem; }
+    .pred-placeholder p { font-size:.68rem; text-align:center; }
+    .spinner-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; height:220px; gap:1rem; }
+    .spinner { width:32px; height:32px; border-radius:50%; border:2px solid var(--border); animation:spin .85s linear infinite; }
+    .sp1 { border-top-color:var(--v1); } .sp2 { border-top-color:var(--v2); } .sp3 { border-top-color:var(--ef); }
+    .spinner-text { font-size:.65rem; color:var(--muted); }
 
-.action-btn{width:100%;border:none;padding:.65rem;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .2s;margin-bottom:.4rem}
-.action-btn:last-child{margin-bottom:0}
-.btn-train{background:var(--ochre);color:var(--cream)}
-.btn-train:hover{background:#a8640f}
-.btn-train:disabled{opacity:.35;cursor:not-allowed}
-.btn-live{background:var(--sage);color:var(--cream)}
-.btn-live:hover{background:#3a6247}
-.btn-live:disabled{opacity:.35;cursor:not-allowed}
-.btn-stop{background:var(--rust);color:var(--cream)}
-.btn-stop:hover{background:#a33a12}
+    /* STATUS */
+    .status-bar { padding:.8rem 1rem; background:var(--surface); border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; gap:.6rem; font-size:.68rem; color:var(--muted); }
+    .status-dot { width:7px; height:7px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+    .status-dot.ready { background:var(--green); box-shadow:0 0 6px var(--green); }
+    .status-dot.loading { background:#f59e0b; animation:pulse 1s infinite; }
+    .status-dot.error { background:#ef4444; }
 
-/* LIVE PRED */
-.live-big{font-family:'DM Serif Display',serif;font-size:5rem;color:var(--amber);text-align:center;line-height:1}
-.live-conf{text-align:center;font-size:.58rem;color:var(--muted);margin:.2rem 0 1rem}
-.live-bars{display:flex;flex-direction:column;gap:.3rem}
-.lb{display:flex;align-items:center;gap:.5rem}
-.lb-d{font-family:'DM Serif Display',serif;font-size:.9rem;color:var(--muted);width:12px;text-align:center;flex-shrink:0}
-.lb-track{flex:1;height:6px;background:var(--bg2);border:1px solid var(--border);overflow:hidden}
-.lb-fill{height:100%;background:var(--sage);transition:width .12s linear}
-.lb-fill.top{background:var(--amber)}
-.lb-pct{font-size:.5rem;color:var(--muted);width:30px;text-align:right}
-.live-ph{text-align:center;color:var(--muted);font-size:.62rem;padding:1.5rem 1rem;line-height:1.7}
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes slideIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 
-/* LOAD ROWS */
-.load-row{display:flex;align-items:center;gap:.7rem;margin-bottom:.6rem}
-.load-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
-.load-dot.done{background:var(--green)}
-.load-dot.act{background:var(--ochre);animation:blink 1s infinite}
-.load-text{font-size:.6rem;color:var(--muted);flex:1}
-.load-time{font-size:.56rem;color:var(--green)}
-
-/* STATUS */
-.status{background:var(--cream);border:1px solid var(--border);padding:.65rem 1rem;display:flex;align-items:center;gap:.6rem;font-size:.62rem;color:var(--muted);margin-top:1rem}
-.sdot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
-.sdot.ready{background:var(--green)}
-.sdot.work{background:var(--ochre);animation:blink 1s infinite}
-.sdot.err{background:var(--red)}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-
-@media(max-width:720px){.grid{grid-template-columns:1fr}}
-</style>
+    @media(max-width:800px) {
+      .results-grid { grid-template-columns:1fr; }
+      .stats-strip { grid-template-columns:repeat(3,1fr); }
+      .analysis-grid { grid-template-columns:1fr; }
+      .input-row { grid-template-columns:1fr; }
+      .legend { flex-direction:column; }
+    }
+  </style>
 </head>
 <body>
-<div class="wrap">
+  <div class="glow1"></div>
+  <div class="glow2"></div>
+  <div class="container">
 
-<nav class="nav">
-  <a href="../index.html">← Home</a>
-  <span class="nav-sep">/</span>
-  <span class="nav-cur">Assignment 3</span>
-</nav>
+    <nav class="nav">
+      <a href="../index.html">← Home</a>
+      <span class="nav-sep">/</span>
+      <span class="nav-current">Assignment 3</span>
+    </nav>
 
-<div class="hdr">
-  <div class="hdr-tag">Assignment 03</div>
-  <h1>Webcam <em>Finger Digits</em></h1>
-  <p>Collect hand gesture samples using your webcam. MobileNet extracts deep features; a custom dense classifier trains on your samples and predicts in real time.</p>
-</div>
-
-<div class="steps">
-  <div class="step active" id="stp1"><span class="step-n">1</span>Load Models</div>
-  <div class="step"        id="stp2"><span class="step-n">2</span>Enable Webcam</div>
-  <div class="step"        id="stp3"><span class="step-n">3</span>Collect Samples</div>
-  <div class="step"        id="stp4"><span class="step-n">4</span>Train</div>
-  <div class="step"        id="stp5"><span class="step-n">5</span>Live Predict</div>
-</div>
-
-<div class="grid">
-
-  <div style="display:flex;flex-direction:column;gap:1rem">
-    <div class="panel p-sage">
-      <div class="panel-title">Webcam Feed</div>
-      <div class="cam-ph" id="camPh"><span>📷</span>Camera not started</div>
-      <video id="video" autoplay playsinline muted></video>
-      <button class="cam-btn" id="camBtn" onclick="toggleCam()" disabled>Enable Webcam</button>
+    <div class="header">
+      <div class="header-label">Assignment 03 · 3-Model Comparison</div>
+      <h1>
+        <span class="v1">MobileNet v1</span> vs
+        <span class="v2">MobileNet v2</span> vs
+        <span class="ef">MobileNet v1-Lite</span>
+      </h1>
+      <p>Compare three MobileNet variants — all load from CDN in under 3 seconds. See how architecture width (alpha) and version affect predictions, confidence scores, and inference speed, running entirely in-browser via WebGL.</p>
     </div>
 
-    <div class="panel p-amber">
-      <div class="panel-title">Collect Samples — hold button while showing gesture</div>
-      <div class="digit-grid" id="digitGrid"></div>
-      <p style="font-size:.56rem;color:var(--muted)">Hold a button for 2–3s to capture samples. Aim for <strong>20+ samples per class</strong> for best accuracy.</p>
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-card c1">
+        <div class="legend-dot d1"></div>
+        <div>
+          <div class="legend-name">MobileNet v1 (α1.0)</div>
+          <div class="legend-meta">
+            Original full-width mobile CNN · 2017.<br/>
+            <span>Standard depthwise conv</span><span>~4.2M params</span><span>Top-1 ≈ 70.6%</span>
+          </div>
+        </div>
+      </div>
+      <div class="legend-card c2">
+        <div class="legend-dot d2"></div>
+        <div>
+          <div class="legend-name">MobileNet v2 (α1.0)</div>
+          <div class="legend-meta">
+            Inverted residuals + linear bottlenecks · 2018.<br/>
+            <span>Inverted residuals</span><span>~3.4M params</span><span>Top-1 ≈ 71.8%</span>
+          </div>
+        </div>
+      </div>
+      <div class="legend-card c3">
+        <div class="legend-dot d3"></div>
+        <div>
+          <div class="legend-name">MobileNet v1-Lite (α0.25)</div>
+          <div class="legend-meta">
+            Ultra-small width multiplier variant · fastest inference.<br/>
+            <span>α=0.25 width</span><span>~0.5M params</span><span>Top-1 ≈ 49.4%</span>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- Load progress -->
+    <div class="load-progress" id="loadProgress">
+      <div class="load-title">Model Loading</div>
+
+      <div class="load-row">
+        <div class="load-dot a1" id="dot1"></div>
+        <div class="load-col">
+          <div class="load-top">
+            <div class="load-label" id="lbl1">Loading MobileNet v1 (α1.0)…</div>
+            <div class="load-right">
+              <div class="load-pct" id="pct1">0%</div>
+              <div class="load-time" id="time1"></div>
+            </div>
+          </div>
+          <div class="load-track"><div class="load-fill fill1" id="fill1"></div></div>
+          <div class="load-sub" id="sub1">Fetching weights from CDN…</div>
+        </div>
+      </div>
+
+      <div class="load-row">
+        <div class="load-dot" id="dot2"></div>
+        <div class="load-col">
+          <div class="load-top">
+            <div class="load-label" id="lbl2">MobileNet v2 (α1.0) — queued</div>
+            <div class="load-right">
+              <div class="load-pct" id="pct2">—</div>
+              <div class="load-time" id="time2"></div>
+            </div>
+          </div>
+          <div class="load-track"><div class="load-fill fill2" id="fill2"></div></div>
+          <div class="load-sub" id="sub2">Waiting…</div>
+        </div>
+      </div>
+
+      <div class="load-row">
+        <div class="load-dot" id="dot3"></div>
+        <div class="load-col">
+          <div class="load-top">
+            <div class="load-label" id="lbl3">MobileNet v1-Lite (α0.25) — queued</div>
+            <div class="load-right">
+              <div class="load-pct" id="pct3">—</div>
+              <div class="load-time" id="time3"></div>
+            </div>
+          </div>
+          <div class="load-track"><div class="load-fill fill3" id="fill3"></div></div>
+          <div class="load-sub" id="sub3">Waiting…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image input -->
+    <div class="input-section">
+      <div class="panel-title">Select Image</div>
+      <div class="input-row">
+        <div class="img-preview-box">
+          <img id="previewImg" crossorigin="anonymous"/>
+          <div class="img-ph" id="previewPh"><span>🖼️</span>no image</div>
+        </div>
+        <div class="input-right">
+          <div class="quick-row">
+            <button class="quick-btn" onclick="loadLocal('dog.jpg',this)">🐕 Dog</button>
+            <button class="quick-btn" onclick="loadLocal('car.jpg',this)">🚗 Car</button>
+            <button class="quick-btn" onclick="loadLocal('chair.jpg',this)">🪑 Chair</button>
+            <button class="quick-btn" onclick="loadLocal('laptop.jpg',this)">💻 Laptop</button>
+            <button class="quick-btn" onclick="loadLocal('pineapple.jpg',this)">🍍 Pineapple</button>
+          </div>
+          <label class="upload-label">
+            📂 Upload your own image
+            <input type="file" accept="image/*" onchange="handleUpload(event)"/>
+          </label>
+        </div>
+      </div>
+      <button class="compare-btn" id="compareBtn" onclick="runComparison()" disabled>⚡ Run 3-Model Comparison</button>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="stats-strip" id="statsStrip">
+      <div class="strip-stat"><div class="strip-val sv1" id="statT1">—</div><div class="strip-key">v1 ms</div></div>
+      <div class="strip-stat"><div class="strip-val sv2" id="statT2">—</div><div class="strip-key">v2 ms</div></div>
+      <div class="strip-stat"><div class="strip-val sv3" id="statT3">—</div><div class="strip-key">v1-Lite ms</div></div>
+      <div class="strip-stat"><div class="strip-val sn" id="statAgree">—</div><div class="strip-key">All Agree?</div></div>
+      <div class="strip-stat"><div class="strip-val sn" id="statFastest">—</div><div class="strip-key">Fastest</div></div>
+    </div>
+
+    <!-- Results: 3 columns -->
+    <div class="results-grid">
+      <div class="model-panel p1">
+        <div class="model-header">
+          <div class="model-name">MobileNet v1</div>
+          <div class="model-badge bv1">Classic · 2017</div>
+        </div>
+        <div id="results1"><div class="pred-placeholder"><span>🔵</span><p>Run comparison<br/>to see results</p></div></div>
+      </div>
+      <div class="model-panel p2">
+        <div class="model-header">
+          <div class="model-name">MobileNet v2</div>
+          <div class="model-badge bv2">Improved · 2018</div>
+        </div>
+        <div id="results2"><div class="pred-placeholder"><span>🟣</span><p>Run comparison<br/>to see results</p></div></div>
+      </div>
+      <div class="model-panel p3">
+        <div class="model-header">
+          <div class="model-name">MobileNet v1-Lite</div>
+          <div class="model-badge bef">Ultra-Fast · α0.25</div>
+        </div>
+        <div id="results3"><div class="pred-placeholder"><span>🟢</span><p>Run comparison<br/>to see results</p></div></div>
+      </div>
+    </div>
+
+    <!-- Analysis -->
+    <div class="analysis-panel" id="analysisPanel">
+      <div class="panel-title">Architecture Analysis</div>
+      <div class="analysis-grid">
+        <div class="analysis-card"><h4>⚡ Speed Ranking</h4><p id="analysisSA">—</p></div>
+        <div class="analysis-card"><h4>🤝 Label Agreement</h4><p id="analysisAG">—</p></div>
+        <div class="analysis-card"><h4>📊 Confidence Pattern</h4><p id="analysisCP">—</p></div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="statusDot"></div>
+      <span id="statusText">Initialising TensorFlow.js WebGL backend…</span>
+    </div>
+
   </div>
-
-  <div style="display:flex;flex-direction:column;gap:1rem">
-    <div class="panel p-ochre">
-      <div class="panel-title">Model Loading</div>
-      <div class="load-row"><div class="load-dot act" id="ld1"></div><div class="load-text" id="lt1">Loading MobileNet…</div><div class="load-time" id="ltime1"></div></div>
-      <div class="load-row"><div class="load-dot"     id="ld2"></div><div class="load-text" id="lt2">Custom classifier — pending</div><div class="load-time" id="ltime2"></div></div>
-    </div>
-
-    <div class="panel p-ochre">
-      <div class="panel-title">Classifier Training</div>
-      <div class="train-settings">
-        <div class="ts"><div class="ts-label">Epochs</div><input type="number" id="epIn" value="30" min="10" max="100"/></div>
-        <div class="ts"><div class="ts-label">Learning Rate</div><input type="number" id="lrIn" value="0.0005" step="0.0001" min="0.00001"/></div>
-      </div>
-      <div class="prog-wrap">
-        <div class="prog-head"><span>Progress</span><span id="trEpLbl">—</span></div>
-        <div class="prog-track"><div class="prog-fill" id="trProg"></div></div>
-      </div>
-      <div class="log-small" id="trainLog">Collect samples for ≥2 digit classes, then click Train…</div>
-      <button class="action-btn btn-train" id="trainBtn" onclick="doTrain()" disabled>🧠 Train Classifier Head</button>
-    </div>
-
-    <div class="panel p-rust">
-      <div class="panel-title">Live Prediction</div>
-      <div id="liveArea"><div class="live-ph">Train the model first, then start live prediction.</div></div>
-      <div style="display:flex;gap:.5rem;margin-top:.8rem">
-        <button class="action-btn btn-live" id="liveBtn" onclick="startLive()" disabled style="margin-bottom:0">▶ Start Live</button>
-        <button class="action-btn btn-stop" id="stopBtn" onclick="stopLive()" style="margin-bottom:0;display:none">■ Stop</button>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<div class="status">
-  <div class="sdot work" id="sdot"></div>
-  <span id="stxt">Loading TensorFlow.js + MobileNet…</span>
-</div>
-
-</div>
-<script src="webcam.js"></script>
+  <script src="compare.js"></script>
 </body>
 </html>
