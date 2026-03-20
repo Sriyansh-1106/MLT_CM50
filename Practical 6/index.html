@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Practical 6 — Pose Detection with PoseNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #f5f3f0;
+            color: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2.5rem;
+        }
+
+        /* Soft dot pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(circle, #d4d0ca 0.8px, transparent 0.8px);
+            background-size: 28px 28px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 1050px;
+            width: 100%;
+        }
+
+        .badge {
+            display: inline-block;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.95rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #2563eb;
+            border: 1.5px solid rgba(37,99,235,0.25);
+            padding: 0.45rem 1.4rem;
+            border-radius: 100px;
+            margin-bottom: 1.5rem;
+            background: rgba(37,99,235,0.05);
+        }
+
+        h1 {
+            font-size: 3.2rem;
+            font-weight: 700;
+            line-height: 1.15;
+            margin-bottom: 0.75rem;
+            color: #1a1a1a;
+        }
+        h1 span {
+            background: linear-gradient(135deg, #2563eb, #db2777);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+
+        .subtitle {
+            color: #6b6560;
+            font-size: 1.25rem;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1.5px solid #e5e2dd;
+            border-radius: 18px;
+            padding: 2.2rem 1.8rem;
+            text-decoration: none;
+            color: #1a1a1a;
+            transition: transform 0.25s, box-shadow 0.3s, border-color 0.3s;
+            position: relative;
+            overflow: hidden;
+            text-align: left;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+        }
+        .card:nth-child(1)::before { background: #2563eb; }
+        .card:nth-child(2)::before { background: #db2777; }
+        .card:nth-child(3)::before { background: #059669; }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 14px 40px rgba(0,0,0,0.08);
+            border-color: #ccc;
+        }
+
+        .card-num {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9rem;
+            color: #9a9590;
+            margin-bottom: 0.8rem;
+        }
+        .card h2 {
+            font-size: 1.45rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+        .card p {
+            font-size: 1.05rem;
+            color: #6b6560;
+            line-height: 1.6;
+        }
+        .card .arrow {
+            display: inline-block;
+            margin-top: 1.3rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #9a9590;
+            transition: color 0.2s, transform 0.2s;
+        }
+        .card:nth-child(1):hover .arrow { color: #2563eb; }
+        .card:nth-child(2):hover .arrow { color: #db2777; }
+        .card:nth-child(3):hover .arrow { color: #059669; }
+        .card:hover .arrow { transform: translateX(5px); }
+
+        .footer {
+            margin-top: 3rem;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9rem;
+            color: #9a9590;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="badge">TensorFlow.js &middot; PoseNet</div>
+        <h1>Practical 6: <span>Pose Detection</span></h1>
+        <p class="subtitle">Real-time human pose estimation in the browser using PoseNet and TensorFlow.js — no backend required.</p>
+
+        <div class="cards">
+            <a class="card" href="assignment1.html">
+                <div class="card-num">Assignment 01</div>
+                <h2>Keypoint &amp; Skeleton Detection</h2>
+                <p>Detect 17 body keypoints from webcam and draw skeleton connections in real time with confidence filtering.</p>
+                <span class="arrow">Open assignment →</span>
+            </a>
+            <a class="card" href="assignment2.html">
+                <div class="card-num">Assignment 02</div>
+                <h2>Squat Rep Counter</h2>
+                <p>Count squat repetitions using joint angle calculations between hip, knee, and ankle keypoints.</p>
+                <span class="arrow">Open assignment →</span>
+            </a>
+            <a class="card" href="assignment3.html">
+                <div class="card-num">Assignment 03</div>
+                <h2>Single vs Multi-Pose</h2>
+                <p>Compare single-pose and multi-pose detection modes. Visualize multiple persons and log performance.</p>
+                <span class="arrow">Open assignment →</span>
+            </a>
+        </div>
+
+        <p class="footer">Runs entirely in-browser &middot; Webcam required &middot; Open with Live Server in VS Code</p>
+    </div>
+</body>
+</html>

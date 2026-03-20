@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment 3 — Single vs Multi-Pose Detection</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #f5f3f0;
+            color: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background-image: radial-gradient(circle, #d4d0ca 0.8px, transparent 0.8px);
+            background-size: 28px 28px;
+            z-index: 0; pointer-events: none;
+        }
+        .page { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 900px; }
+
+        a.back { align-self: flex-start; color: #2563eb; text-decoration: none; font-size: 1rem; font-weight: 500; margin-bottom: 1rem; }
+        a.back:hover { text-decoration: underline; }
+
+        h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .sub { color: #6b6560; font-size: 1rem; margin-bottom: 1.25rem; }
+
+        #status {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9rem;
+            padding: 0.45rem 1.2rem;
+            border-radius: 100px;
+            margin-bottom: 1.25rem;
+            background: #fff;
+            border: 1.5px solid #e5e2dd;
+            color: #7a7670;
+        }
+        #status.ready { color: #059669; border-color: rgba(5,150,105,0.3); background: rgba(5,150,105,0.05); }
+
+        .mode-toggle {
+            display: flex;
+            margin-bottom: 1.25rem;
+            border: 1.5px solid #e5e2dd;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .mode-toggle button {
+            padding: 0.6rem 1.6rem;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border: none;
+            background: transparent;
+            color: #7a7670;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .mode-toggle button.active {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .canvas-wrap {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1.5px solid #e5e2dd;
+            background: #000;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+        video { display: block; }
+        canvas { position: absolute; top: 0; left: 0; }
+
+        .metrics {
+            margin-top: 1.25rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .metric {
+            background: #fff;
+            border: 1.5px solid #e5e2dd;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            min-width: 150px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        .metric label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #7a7670;
+            display: block;
+            margin-bottom: 0.35rem;
+        }
+        .metric .val {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+        .metric .val.persons { color: #db2777; }
+        .metric .val.mode    { color: #2563eb; font-size: 1.1rem; }
+        .metric .val.time    { color: #059669; }
+        .metric .val.fps     { color: #d97706; }
+
+        .note {
+            margin-top: 1.5rem;
+            font-size: 0.85rem;
+            color: #999;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <a class="back" href="index.html">← Back to Practical 6</a>
+        <h1>Assignment 3: Single vs Multi-Pose Detection</h1>
+        <p class="sub">Compare detection modes — switch between single-pose and multi-pose</p>
+        <div id="status">Loading PoseNet model…</div>
+
+        <div class="mode-toggle">
+            <button id="btn-single" class="active">Single-Pose</button>
+            <button id="btn-multi">Multi-Pose (up to 5)</button>
+        </div>
+
+        <div class="canvas-wrap">
+            <video id="video" width="640" height="480" autoplay playsinline></video>
+            <canvas id="canvas" width="640" height="480"></canvas>
+        </div>
+
+        <div class="metrics">
+            <div class="metric">
+                <label>Current Mode</label>
+                <div class="val mode" id="mode-display">Single</div>
+            </div>
+            <div class="metric">
+                <label>Persons Detected</label>
+                <div class="val persons" id="person-count">0</div>
+            </div>
+            <div class="metric">
+                <label>Inference Time</label>
+                <div class="val time" id="inference-time">-- ms</div>
+            </div>
+            <div class="metric">
+                <label>FPS</label>
+                <div class="val fps" id="fps-display">--</div>
+            </div>
+        </div>
+
+        <p class="note">
+            Open the browser console (F12) to see detailed performance logs comparing single-pose vs multi-pose inference times.
+        </p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
+    <script src="assignment3.js"></script>
+</body>
+</html>
