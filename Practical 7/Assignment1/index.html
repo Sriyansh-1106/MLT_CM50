@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment 1 — Webcam Object Classification</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #f5f3f0;
+            color: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background-image: radial-gradient(circle, #d4d0ca 0.8px, transparent 0.8px);
+            background-size: 28px 28px;
+            z-index: 0; pointer-events: none;
+        }
+        .page { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 950px; }
+
+        a.back { align-self: flex-start; color: #7c3aed; text-decoration: none; font-size: 1rem; font-weight: 500; margin-bottom: 1rem; }
+        a.back:hover { text-decoration: underline; }
+
+        h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .sub { color: #6b6560; font-size: 1rem; margin-bottom: 1rem; }
+
+        .tip {
+            background: #fff;
+            border: 1.5px solid #e5e2dd;
+            border-radius: 10px;
+            padding: 0.8rem 1.2rem;
+            font-size: 0.95rem;
+            color: #6b6560;
+            margin-bottom: 1.25rem;
+            max-width: 660px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .tip strong { color: #1a1a1a; }
+
+        #status {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9rem;
+            padding: 0.45rem 1.2rem;
+            border-radius: 100px;
+            margin-bottom: 1.25rem;
+            background: #fff;
+            border: 1.5px solid #e5e2dd;
+            color: #7a7670;
+        }
+        #status.ready { color: #059669; border-color: rgba(5,150,105,0.3); background: rgba(5,150,105,0.05); }
+
+        .layout {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .canvas-wrap {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1.5px solid #e5e2dd;
+            background: #000;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+        video { display: block; }
+
+        .predictions {
+            background: #fff;
+            border: 1.5px solid #e5e2dd;
+            border-radius: 14px;
+            padding: 1.8rem;
+            min-width: 280px;
+            max-width: 320px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+        }
+        .predictions h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1.2rem;
+            color: #1a1a1a;
+        }
+
+        .pred-item { margin-bottom: 1rem; }
+        .pred-item:last-child { margin-bottom: 0; }
+
+        .pred-label {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .pred-label .name { color: #1a1a1a; text-transform: capitalize; }
+        .pred-label .score {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.85rem;
+            color: #7c3aed;
+            font-weight: 500;
+        }
+
+        .pred-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #f0eeeb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .pred-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .pred-item:nth-child(1) .pred-bar { background: #7c3aed; }
+        .pred-item:nth-child(2) .pred-bar { background: #db2777; }
+        .pred-item:nth-child(3) .pred-bar { background: #059669; }
+
+        .pred-empty {
+            color: #9a9590;
+            font-size: 0.95rem;
+            font-style: italic;
+        }
+
+        .info {
+            margin-top: 1rem;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9rem;
+            color: #6b6560;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <a class="back" href="../index.html">← Back to Practical 7</a>
+        <h1>Assignment 1: Webcam Object Classification</h1>
+        <p class="sub">Real-time object classification using MobileNet — top 3 predictions</p>
+
+        <div class="tip">
+            <strong>Tip:</strong> Hold objects like a phone, bottle, keyboard, or book in front of the webcam. MobileNet recognizes 1000+ object categories.
+        </div>
+
+        <div id="status">Loading MobileNet model…</div>
+
+        <div class="layout">
+            <div class="canvas-wrap">
+                <video id="video" width="640" height="480" autoplay playsinline></video>
+            </div>
+
+            <div class="predictions">
+                <h3>Top 3 Predictions</h3>
+                <div id="pred-list">
+                    <p class="pred-empty">Waiting for model to load…</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="info">
+            <span id="fps-display">FPS: --</span> &nbsp;|&nbsp; <span id="inference-display">Inference: -- ms</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

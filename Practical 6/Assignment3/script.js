@@ -12,7 +12,6 @@ const MIN_CONFIDENCE = 0.3;
 const MAX_POSES = 5;
 const MIN_POSE_CONFIDENCE = 0.15;
 
-// Unique colors per person
 const PERSON_COLORS = [
     { keypoint: '#2563eb', skeleton: '#1d4ed8' },
     { keypoint: '#db2777', skeleton: '#be185d' },
@@ -22,7 +21,7 @@ const PERSON_COLORS = [
 ];
 
 // ─── State ──────────────────────────────────────────────────
-let detectionMode = 'single';
+let detectionMode   = 'single';
 let frameCount      = 0;
 let lastFpsTime     = performance.now();
 let singlePoseTimes = [];
@@ -58,7 +57,7 @@ btnMulti.addEventListener('click', () => {
 });
 
 /**
- * Log mode switch and performance comparison to console.
+ * Log mode switch and performance comparison.
  */
 function logModeSwitch(mode) {
     console.log(`%c═══ Switched to ${mode.toUpperCase()}-POSE mode ═══`, 'color: #2563eb; font-weight: bold');
@@ -154,7 +153,7 @@ function updateFPS() {
 }
 
 /**
- * Track inference time and log every 30 frames.
+ * Track and log inference time every 30 frames.
  */
 function trackInferenceTime(ms) {
     const bucket = detectionMode === 'single' ? singlePoseTimes : multiPoseTimes;

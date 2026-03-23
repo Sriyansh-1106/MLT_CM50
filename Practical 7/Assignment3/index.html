@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment 3 — FPS &amp; Performance Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #f5f3f0;
+            color: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background-image: radial-gradient(circle, #d4d0ca 0.8px, transparent 0.8px);
+            background-size: 28px 28px;
+            z-index: 0; pointer-events: none;
+        }
+        .page { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 1000px; }
+
+        a.back { align-self: flex-start; color: #7c3aed; text-decoration: none; font-size: 1rem; font-weight: 500; margin-bottom: 1rem; }
+        a.back:hover { text-decoration: underline; }
+
+        h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .sub { color: #6b6560; font-size: 1rem; margin-bottom: 1.25rem; }
+
+        #status {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9rem;
+            padding: 0.45rem 1.2rem;
+            border-radius: 100px;
+            margin-bottom: 1.25rem;
+            background: #fff;
+            border: 1.5px solid #e5e2dd;
+            color: #7a7670;
+        }
+        #status.ready { color: #059669; border-color: rgba(5,150,105,0.3); background: rgba(5,150,105,0.05); }
+
+        .layout {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .canvas-wrap {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1.5px solid #e5e2dd;
+            background: #000;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+        video { display: block; }
+
+        .panel {
+            background: #fff;
+            border: 1.5px solid #e5e2dd;
+            border-radius: 14px;
+            padding: 1.8rem;
+            min-width: 280px;
+            max-width: 320px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+        .panel h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.2rem; }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+        .metric-card {
+            background: #faf9f7;
+            border: 1px solid #eae7e3;
+            border-radius: 10px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+        .metric-card label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #7a7670;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+        .metric-card .val { font-size: 1.4rem; font-weight: 700; }
+        .metric-card .val.fps    { color: #d97706; }
+        .metric-card .val.infer  { color: #059669; }
+        .metric-card .val.avg    { color: #2563eb; }
+        .metric-card .val.frames { color: #7c3aed; }
+
+        .current-pred {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            padding: 0.6rem 0;
+            border-top: 1px solid #eae7e3;
+        }
+        .current-pred span {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.85rem;
+            color: #7c3aed;
+            font-weight: 500;
+        }
+
+        .model-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            border-top: 1px solid #eae7e3;
+            padding-top: 1rem;
+        }
+        .model-actions h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.2rem; }
+        .model-actions p { font-size: 0.8rem; color: #7a7670; line-height: 1.4; margin-bottom: 0.4rem; }
+
+        .btn {
+            padding: 0.6rem 1rem;
+            border: 1.5px solid #e5e2dd;
+            background: #f5f3f0;
+            color: #1a1a1a;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background 0.2s, border-color 0.2s;
+            text-align: center;
+        }
+        .btn:hover { background: #eae7e3; border-color: #ccc; }
+        .btn.primary { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+        .btn.primary:hover { background: #6d28d9; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        #model-status {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.78rem;
+            color: #7a7670;
+            min-height: 1.2em;
+        }
+        #model-status.success { color: #059669; }
+        #model-status.error { color: #dc2626; }
+
+        .note {
+            margin-top: 1.25rem;
+            font-size: 0.85rem;
+            color: #999;
+            max-width: 700px;
+            text-align: center;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <a class="back" href="../index.html">← Back to Practical 7</a>
+        <h1>Assignment 3: FPS &amp; Performance Analysis</h1>
+        <p class="sub">Measure real-time inference performance and save/reload the MobileNet model locally</p>
+
+        <div id="status">Loading MobileNet model…</div>
+
+        <div class="layout">
+            <div class="canvas-wrap">
+                <video id="video" width="640" height="480" autoplay playsinline></video>
+            </div>
+
+            <div class="panel">
+                <div>
+                    <h3>Performance Metrics</h3>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <label>Current FPS</label>
+                        <div class="val fps" id="fps-val">--</div>
+                    </div>
+                    <div class="metric-card">
+                        <label>Inference</label>
+                        <div class="val infer" id="infer-val">-- ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <label>Avg Inference</label>
+                        <div class="val avg" id="avg-val">-- ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <label>Total Frames</label>
+                        <div class="val frames" id="frames-val">0</div>
+                    </div>
+                </div>
+
+                <div class="current-pred" id="current-pred">
+                    Waiting…
+                </div>
+
+                <div class="model-actions">
+                    <h4>Deploy Model Locally</h4>
+                    <p>Save the trained MobileNet model to browser storage (IndexedDB), then reload and run predictions from the saved copy.</p>
+                    <button class="btn primary" id="btn-save">Save Model to Browser</button>
+                    <button class="btn" id="btn-load" disabled>Load Saved Model &amp; Predict</button>
+                    <div id="model-status"></div>
+                </div>
+            </div>
+        </div>
+
+        <p class="note">
+            Open the browser console (F12) to see detailed per-frame inference logs and performance comparison between CDN-loaded vs locally-saved model.
+        </p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

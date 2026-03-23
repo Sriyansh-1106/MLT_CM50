@@ -8,13 +8,10 @@
  */
 
 // ─── Configuration ──────────────────────────────────────────
-const MIN_CONFIDENCE = 0.25;      // Lowered for better detection
-
-// Angle thresholds (slightly relaxed for easier counting)
+const MIN_CONFIDENCE = 0.25;
 const STANDING_ANGLE = 150;
 const SQUATTING_ANGLE = 110;
 
-// Drawing constants
 const KEYPOINT_COLOR  = '#2563eb';
 const SKELETON_COLOR  = '#db2777';
 const ANGLE_ARC_COLOR = '#059669';
@@ -34,7 +31,6 @@ const stateEl    = document.getElementById('squat-state');
 const trackingEl = document.getElementById('tracking-status');
 const resetBtn   = document.getElementById('reset-btn');
 
-// Reset button
 resetBtn.addEventListener('click', () => {
     repCount = 0;
     currentState = 'standing';
@@ -69,22 +65,20 @@ async function loadModel() {
 }
 
 /**
- * Calculate angle at point B (knee) formed by points A (hip) and C (ankle).
+ * Calculate angle at vertex B formed by points A-B-C.
  */
 function calculateAngle(a, b, c) {
     const BA = { x: a.x - b.x, y: a.y - b.y };
     const BC = { x: c.x - b.x, y: c.y - b.y };
-
     const dot = BA.x * BC.x + BA.y * BC.y;
     const magBA = Math.sqrt(BA.x ** 2 + BA.y ** 2);
     const magBC = Math.sqrt(BC.x ** 2 + BC.y ** 2);
-
     const cosAngle = Math.max(-1, Math.min(1, dot / (magBA * magBC)));
     return (Math.acos(cosAngle) * 180) / Math.PI;
 }
 
 /**
- * Get keypoint by name, returns null if below confidence.
+ * Get keypoint by name, null if below confidence.
  */
 function getKeypoint(keypoints, name) {
     const kp = keypoints.find(k => k.part === name);
@@ -92,7 +86,7 @@ function getKeypoint(keypoints, name) {
 }
 
 /**
- * Update squat state machine and count reps.
+ * Update squat state machine.
  */
 function processSquat(angle) {
     if (angle < SQUATTING_ANGLE && currentState === 'standing') {
@@ -133,7 +127,7 @@ function drawPose(keypoints) {
 }
 
 /**
- * Draw angle arc and label at the knee.
+ * Draw angle arc at the knee.
  */
 function drawAngleArc(hip, knee, ankle, angle) {
     ctx.beginPath();
@@ -158,13 +152,12 @@ async function detectPose(net) {
 
     drawPose(pose.keypoints);
 
-    // Try left side first, then right side
+    // Try left side first, fallback to right
     let hip   = getKeypoint(pose.keypoints, 'leftHip')   || getKeypoint(pose.keypoints, 'rightHip');
     let knee  = getKeypoint(pose.keypoints, 'leftKnee')  || getKeypoint(pose.keypoints, 'rightKnee');
     let ankle = getKeypoint(pose.keypoints, 'leftAnkle') || getKeypoint(pose.keypoints, 'rightAnkle');
 
     if (hip && knee && ankle) {
-        // All three joints detected — tracking active
         trackingEl.textContent = '✓ Legs tracked';
         trackingEl.style.color = '#059669';
 
@@ -184,7 +177,6 @@ async function detectPose(net) {
 
         processSquat(angle);
     } else {
-        // Joints not visible — show what's missing
         const missing = [];
         if (!hip) missing.push('hip');
         if (!knee) missing.push('knee');
